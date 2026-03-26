@@ -8,6 +8,7 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from django.db.models import F, Max, Q, Sum
 from django.db.models.functions import Coalesce
+from django.middleware.csrf import get_token
 from django.views.decorators.csrf import ensure_csrf_cookie
 
 from rest_framework.decorators import api_view, permission_classes
@@ -260,7 +261,7 @@ def trade_table(request):
 @permission_classes([AllowAny])
 @ensure_csrf_cookie
 def csrf(request):
-    return Response({"detail": "CSRF cookie set"})
+    return Response({"csrfToken": get_token(request)})
 
 
 @api_view(["POST"])

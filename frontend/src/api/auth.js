@@ -1,8 +1,12 @@
-import { getCookie } from "./csrf";
+import { getCookie, setCsrfToken } from "./csrf";
 import { API_BASE } from "./config";
 
 export async function fetchCsrfToken() {
-  await fetch(`${API_BASE}/auth/csrf/`, { credentials: "include" });
+  const res = await fetch(`${API_BASE}/auth/csrf/`, { credentials: "include" });
+  if (res.ok) {
+    const data = await res.json();
+    if (data.csrfToken) setCsrfToken(data.csrfToken);
+  }
 }
 
 export async function login(username, password) {
