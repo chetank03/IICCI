@@ -111,6 +111,8 @@ export default function ChartsSection({ yearwise, sectorWise, topProducts, loadi
                   tickLine={false}
                 />
                 <Tooltip
+                  allowEscapeViewBox={{ x: false, y: false }}
+                  wrapperStyle={{ maxWidth: 220 }}
                   content={({ active, payload }) => {
                     if (!active || !payload?.length) return null;
                     const hs4  = payload[0]?.payload?.hs4;
