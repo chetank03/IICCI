@@ -1,13 +1,15 @@
+import json
 import logging
 import random
 import tempfile
 import os
+import urllib.request
+import urllib.error
 from decimal import Decimal
 
 from django.conf import settings as django_settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
-from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import F, Max, Q, Sum
 from django.db.models.functions import Coalesce
@@ -21,6 +23,33 @@ from rest_framework.response import Response
 from .models import TradeRecord, EmailOTP, UserProfile
 
 logger = logging.getLogger("core")
+
+
+def _send_email(subject, message, recipient_list, fail_silently=True):
+    """Send email via Resend HTTP API."""
+    api_key = django_settings.RESEND_API_KEY
+    if not api_key:
+        logger.warning("RESEND_API_KEY not set — email not sent")
+        return
+    payload = json.dumps({
+        "from": django_settings.DEFAULT_FROM_EMAIL,
+        "to": recipient_list,
+        "subject": subject,
+        "text": message,
+    }).encode()
+    req = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=payload,
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            resp.read()
+    except Exception:
+        if not fail_silently:
+            raise
+        logger.exception("Resend email failed to %s", recipient_list)
 
 
 def _apply_filters(qs, params):
@@ -514,10 +543,9 @@ def request_otp(request):
     EmailOTP.objects.create(email=email, otp=otp)
 
     try:
-        send_mail(
+        _send_email(
             subject="Your IICCI verification code",
             message=f"Your one-time code is: {otp}\n\nThis code expires in 10 minutes.\nDo not share it with anyone.",
-            from_email=django_settings.DEFAULT_FROM_EMAIL,
             recipient_list=[email],
             fail_silently=False,
         )
@@ -578,10 +606,9 @@ def signup(request):
     admin_emails = list(User.objects.filter(is_staff=True).exclude(email="").values_list("email", flat=True))
     if admin_emails:
         try:
-            send_mail(
+            _send_email(
                 subject=f"New signup request: {username}",
                 message=f"User '{username}' ({email}) has requested access.\n\nLog in to approve or reject: https://iicci.up.railway.app/admin",
-                from_email=django_settings.DEFAULT_FROM_EMAIL,
                 recipient_list=admin_emails,
                 fail_silently=True,
             )
@@ -611,10 +638,9 @@ def approve_user(request, user_id):
 
     if u.email:
         try:
-            send_mail(
+            _send_email(
                 subject="Your IICCI account has been approved",
                 message=f"Hi {u.username},\n\nYour account has been approved. You can now log in at https://iicci.up.railway.app/login",
-                from_email=django_settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[u.email],
                 fail_silently=True,
             )
@@ -641,10 +667,9 @@ def reject_user(request, user_id):
 
     if u.email:
         try:
-            send_mail(
+            _send_email(
                 subject="Your IICCI account request",
                 message=f"Hi {u.username},\n\nUnfortunately your account request has not been approved at this time.",
-                from_email=django_settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[u.email],
                 fail_silently=True,
             )
