@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 import random
@@ -26,22 +27,29 @@ logger = logging.getLogger("core")
 
 
 def _send_email(subject, message, recipient_list, fail_silently=True):
-    """Send email via Resend HTTP API."""
-    api_key = django_settings.RESEND_API_KEY
-    if not api_key:
-        logger.warning("RESEND_API_KEY not set — email not sent")
+    """Send email via Mailjet HTTP API."""
+    api_key = django_settings.MAILJET_API_KEY
+    secret_key = django_settings.MAILJET_SECRET_KEY
+    from_email = django_settings.DEFAULT_FROM_EMAIL
+    if not api_key or not secret_key or not from_email:
+        logger.warning("Mailjet credentials not set — email not sent")
         return
+    credentials = base64.b64encode(f"{api_key}:{secret_key}".encode()).decode()
     payload = json.dumps({
-        "from": django_settings.DEFAULT_FROM_EMAIL,
-        "to": recipient_list,
-        "subject": subject,
-        "text": message,
+        "Messages": [
+            {
+                "From": {"Email": from_email, "Name": "IICCI"},
+                "To": [{"Email": e} for e in recipient_list],
+                "Subject": subject,
+                "TextPart": message,
+            }
+        ]
     }).encode()
     req = urllib.request.Request(
-        "https://api.resend.com/emails",
+        "https://api.mailjet.com/v3.1/send",
         data=payload,
         headers={
-            "Authorization": f"Bearer {api_key}",
+            "Authorization": f"Basic {credentials}",
             "Content-Type": "application/json",
             "User-Agent": "IICCI-Backend/1.0",
         },
@@ -52,13 +60,13 @@ def _send_email(subject, message, recipient_list, fail_silently=True):
             resp.read()
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="replace")
-        logger.error("Resend API error %s: %s", e.code, body)
+        logger.error("Mailjet API error %s: %s", e.code, body)
         if not fail_silently:
             raise
     except Exception:
         if not fail_silently:
             raise
-        logger.exception("Resend email failed to %s", recipient_list)
+        logger.exception("Mailjet email failed to %s", recipient_list)
 
 
 def _apply_filters(qs, params):

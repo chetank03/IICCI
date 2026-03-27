@@ -133,10 +133,11 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# ── Email (Resend HTTP API) ────────────────────────────────────────────────────
+# ── Email (Mailjet HTTP API) ───────────────────────────────────────────────────
 
-RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
-DEFAULT_FROM_EMAIL = "IICCI <onboarding@resend.dev>"
+MAILJET_API_KEY = os.environ.get("MAILJET_API_KEY", "")
+MAILJET_SECRET_KEY = os.environ.get("MAILJET_SECRET_KEY", "")
+DEFAULT_FROM_EMAIL = os.environ.get("MAILJET_FROM_EMAIL", "")
 
 # ── Django REST Framework ─────────────────────────────────────────────────────
 
