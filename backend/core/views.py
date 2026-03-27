@@ -46,6 +46,11 @@ def _send_email(subject, message, recipient_list, fail_silently=True):
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
             resp.read()
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        logger.error("Resend API error %s: %s", e.code, body)
+        if not fail_silently:
+            raise
     except Exception:
         if not fail_silently:
             raise
