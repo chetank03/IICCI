@@ -40,7 +40,11 @@ def _send_email(subject, message, recipient_list, fail_silently=True):
     req = urllib.request.Request(
         "https://api.resend.com/emails",
         data=payload,
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "User-Agent": "IICCI-Backend/1.0",
+        },
         method="POST",
     )
     try:
