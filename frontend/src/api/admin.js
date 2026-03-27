@@ -54,3 +54,25 @@ export async function deleteUser(userId) {
     throw new Error(data.detail || "Failed to delete user");
   }
 }
+
+export async function approveUser(userId) {
+  const res = await fetch(`${API_BASE}/admin/users/${userId}/approve/`, {
+    method: "POST",
+    credentials: "include",
+    headers: headers(),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || "Failed to approve user");
+  return data;
+}
+
+export async function rejectUser(userId) {
+  const res = await fetch(`${API_BASE}/admin/users/${userId}/reject/`, {
+    method: "POST",
+    credentials: "include",
+    headers: headers(),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || "Failed to reject user");
+  return data;
+}

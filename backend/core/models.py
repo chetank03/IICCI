@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 
 
 class TradeRecord(models.Model):
@@ -43,3 +44,39 @@ class TradeRecord(models.Model):
     def __str__(self):
         code = self.hs4 or self.hs2
         return f"{self.year} - {code}"
+
+
+class EmailOTP(models.Model):
+    email = models.EmailField()
+    otp = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_used = models.BooleanField(default=False)
+
+    def is_expired(self):
+        return (timezone.now() - self.created_at).total_seconds() > 600
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.email} - {'used' if self.is_used else 'active'}"
+
+
+class UserProfile(models.Model):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    STATUS_CHOICES = [
+        (PENDING, "Pending"),
+        (APPROVED, "Approved"),
+        (REJECTED, "Rejected"),
+    ]
+    user = models.OneToOneField(
+        "auth.User", on_delete=models.CASCADE, related_name="profile"
+    )
+    approval_status = models.CharField(
+        max_length=10, choices=STATUS_CHOICES, default=PENDING
+    )
+
+    def __str__(self):
+        return f"{self.user.username} ({self.approval_status})"

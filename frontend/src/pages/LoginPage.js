@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { fetchCsrfToken } from "../api/auth";
 import "./LoginPage.css";
@@ -65,6 +65,10 @@ export default function LoginPage() {
         <button type="submit" disabled={submitting}>
           {submitting ? "Signing in..." : "Sign in"}
         </button>
+
+        <p className="signup-link">
+          Don't have an account? <Link to="/signup">Sign up</Link>
+        </p>
       </form>
     </div>
   );

@@ -1,10 +1,13 @@
 import logging
+import random
 import tempfile
 import os
 from decimal import Decimal
 
+from django.conf import settings as django_settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
+from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import F, Max, Q, Sum
 from django.db.models.functions import Coalesce
@@ -15,7 +18,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 
-from .models import TradeRecord
+from .models import TradeRecord, EmailOTP, UserProfile
 
 logger = logging.getLogger("core")
 
@@ -279,6 +282,13 @@ def session_login(request):
     if user is None:
         return Response({"detail": "Invalid credentials"}, status=400)
 
+    profile = getattr(user, "profile", None)
+    if profile:
+        if profile.approval_status == UserProfile.PENDING:
+            return Response({"detail": "Your account is pending admin approval."}, status=403)
+        if profile.approval_status == UserProfile.REJECTED:
+            return Response({"detail": "Your account request was not approved."}, status=403)
+
     login(request, user)
     return Response({"detail": "Logged in", "username": user.username, "is_staff": user.is_staff})
 
@@ -307,14 +317,16 @@ def me(request):
 
 
 def _serialize_user(u):
+    profile = getattr(u, "profile", None)
     return {
-        "id":           u.id,
-        "username":     u.username,
-        "email":        u.email,
-        "is_staff":     u.is_staff,
-        "is_superuser": u.is_superuser,
-        "is_active":    u.is_active,
-        "date_joined":  u.date_joined.isoformat(),
+        "id":              u.id,
+        "username":        u.username,
+        "email":           u.email,
+        "is_staff":        u.is_staff,
+        "is_superuser":    u.is_superuser,
+        "is_active":       u.is_active,
+        "date_joined":     u.date_joined.isoformat(),
+        "approval_status": profile.approval_status if profile else "approved",
     }
 
 
@@ -388,6 +400,7 @@ def admin_stats(request):
         "active_users":  User.objects.filter(is_active=True).count(),
         "staff_users":   User.objects.filter(is_staff=True).count(),
         "total_records": TradeRecord.objects.count(),
+        "pending_users": UserProfile.objects.filter(approval_status=UserProfile.PENDING).count(),
     })
 
 
@@ -482,3 +495,160 @@ def admin_import_excel(request):
         return Response({"detail": "Import failed. Check server logs."}, status=500)
     finally:
         os.unlink(tmp_path)
+
+
+# ── SIGNUP / EMAIL OTP ────────────────────────────────────────────────────────
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def request_otp(request):
+    email = request.data.get("email", "").strip().lower()
+    if not email or "@" not in email or len(email) > 254:
+        return Response({"detail": "Valid email required."}, status=400)
+    if User.objects.filter(email=email).exists():
+        return Response({"detail": "An account with this email already exists."}, status=400)
+
+    EmailOTP.objects.filter(email=email, is_used=False).delete()
+    otp = f"{random.randint(0, 999999):06d}"
+    EmailOTP.objects.create(email=email, otp=otp)
+
+    try:
+        send_mail(
+            subject="Your IICCI verification code",
+            message=f"Your one-time code is: {otp}\n\nThis code expires in 10 minutes.\nDo not share it with anyone.",
+            from_email=django_settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+            fail_silently=False,
+        )
+    except Exception:
+        logger.exception("Failed to send OTP to %s", email)
+        return Response({"detail": "Failed to send email. Try again later."}, status=500)
+
+    return Response({"detail": "OTP sent to your email."})
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def verify_otp(request):
+    email = request.data.get("email", "").strip().lower()
+    otp = request.data.get("otp", "").strip()
+
+    if not email or not otp:
+        return Response({"detail": "Email and OTP required."}, status=400)
+
+    record = EmailOTP.objects.filter(email=email, otp=otp, is_used=False).order_by("-created_at").first()
+    if not record:
+        return Response({"detail": "Invalid OTP."}, status=400)
+    if record.is_expired():
+        return Response({"detail": "OTP expired. Request a new one."}, status=400)
+
+    record.is_used = True
+    record.save()
+    request.session["verified_email"] = email
+
+    return Response({"detail": "Email verified."})
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def signup(request):
+    email = request.session.get("verified_email")
+    if not email:
+        return Response({"detail": "Email not verified. Complete OTP step first."}, status=400)
+
+    username = request.data.get("username", "").strip()
+    password = request.data.get("password", "")
+
+    if not username or len(username) > 150:
+        return Response({"detail": "Valid username required."}, status=400)
+    if len(password) < 8:
+        return Response({"detail": "Password must be at least 8 characters."}, status=400)
+    if User.objects.filter(username=username).exists():
+        return Response({"detail": "Username already taken."}, status=400)
+    if User.objects.filter(email=email).exists():
+        return Response({"detail": "An account with this email already exists."}, status=400)
+
+    user = User.objects.create_user(username=username, password=password, email=email, is_active=True)
+    UserProfile.objects.create(user=user, approval_status=UserProfile.PENDING)
+    del request.session["verified_email"]
+
+    logger.info("SIGNUP_REQUEST user=%s email=%s", username, email)
+
+    admin_emails = list(User.objects.filter(is_staff=True).exclude(email="").values_list("email", flat=True))
+    if admin_emails:
+        try:
+            send_mail(
+                subject=f"New signup request: {username}",
+                message=f"User '{username}' ({email}) has requested access.\n\nLog in to approve or reject: https://iicci.up.railway.app/admin",
+                from_email=django_settings.DEFAULT_FROM_EMAIL,
+                recipient_list=admin_emails,
+                fail_silently=True,
+            )
+        except Exception:
+            pass
+
+    return Response({"detail": "Account created. Awaiting admin approval."}, status=201)
+
+
+# ── ADMIN: APPROVE / REJECT ───────────────────────────────────────────────────
+
+
+@api_view(["POST"])
+@permission_classes([IsAdminUser])
+def approve_user(request, user_id):
+    try:
+        u = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({"detail": "User not found."}, status=404)
+
+    profile, _ = UserProfile.objects.get_or_create(user=u)
+    profile.approval_status = UserProfile.APPROVED
+    profile.save()
+    u.is_active = True
+    u.save()
+    logger.info("USER_APPROVED by=%s target=%s", request.user.username, u.username)
+
+    if u.email:
+        try:
+            send_mail(
+                subject="Your IICCI account has been approved",
+                message=f"Hi {u.username},\n\nYour account has been approved. You can now log in at https://iicci.up.railway.app/login",
+                from_email=django_settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[u.email],
+                fail_silently=True,
+            )
+        except Exception:
+            pass
+
+    return Response(_serialize_user(u))
+
+
+@api_view(["POST"])
+@permission_classes([IsAdminUser])
+def reject_user(request, user_id):
+    try:
+        u = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({"detail": "User not found."}, status=404)
+
+    profile, _ = UserProfile.objects.get_or_create(user=u)
+    profile.approval_status = UserProfile.REJECTED
+    profile.save()
+    u.is_active = False
+    u.save()
+    logger.info("USER_REJECTED by=%s target=%s", request.user.username, u.username)
+
+    if u.email:
+        try:
+            send_mail(
+                subject="Your IICCI account request",
+                message=f"Hi {u.username},\n\nUnfortunately your account request has not been approved at this time.",
+                from_email=django_settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[u.email],
+                fail_silently=True,
+            )
+        except Exception:
+            pass
+
+    return Response(_serialize_user(u))
