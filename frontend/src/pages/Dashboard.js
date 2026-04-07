@@ -160,6 +160,7 @@ export default function Dashboard() {
           sectorWise={sectorWise}
           topProducts={topProducts}
           loading={loading}
+          country={filters.country}
         />
       )}
 

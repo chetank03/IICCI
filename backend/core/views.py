@@ -26,6 +26,10 @@ from .models import TradeRecord, EmailOTP, UserProfile
 logger = logging.getLogger("core")
 
 
+ITALY_IMPORTS_FROM_INDIA = "italy_imports_from_india"
+INDIA_IMPORTS_FROM_ITALY = "india_imports_from_italy"
+
+
 def _send_email(subject, message, recipient_list, fail_silently=True):
     """Send email via Mailjet HTTP API."""
     api_key = django_settings.MAILJET_API_KEY
@@ -82,9 +86,9 @@ def _apply_filters(qs, params):
 
     if year:
         qs = qs.filter(year=year)
-    if country == "italy_imports_from_india":
+    if country == ITALY_IMPORTS_FROM_INDIA:
         qs = qs.filter(india_to_italy_value__gt=0)
-    elif country == "india_imports_from_italy":
+    elif country == INDIA_IMPORTS_FROM_ITALY:
         qs = qs.filter(italy_to_india_value__gt=0)
     if sector:
         qs = qs.filter(sector=sector)
@@ -109,6 +113,14 @@ def _apply_filters(qs, params):
     return qs
 
 
+def _country_totals(country, italy_to_india, india_to_italy):
+    if country == ITALY_IMPORTS_FROM_INDIA:
+        return Decimal("0"), india_to_italy
+    if country == INDIA_IMPORTS_FROM_ITALY:
+        return italy_to_india, Decimal("0")
+    return italy_to_india, india_to_italy
+
+
 # ── PUBLIC STATS ──────────────────────────────────────────────────────────────
 
 
@@ -124,12 +136,17 @@ def stats_summary(request):
         india_to_italy=Coalesce(Sum("india_to_italy_value"), Decimal("0")),
     )
 
-    bilateral = totals["italy_to_india"] + totals["india_to_italy"]
+    italy_to_india, india_to_italy = _country_totals(
+        request.query_params.get("country"),
+        totals["italy_to_india"],
+        totals["india_to_italy"],
+    )
+    bilateral = italy_to_india + india_to_italy
 
     return Response({
         "bilateral_trade_value":    float(bilateral),
-        "india_imports_from_italy": float(totals["italy_to_india"]),
-        "italy_imports_from_india": float(totals["india_to_italy"]),
+        "india_imports_from_italy": float(italy_to_india),
+        "italy_imports_from_india": float(india_to_italy),
     })
 
 
@@ -140,6 +157,7 @@ def stats_yearwise(request):
     qs = TradeRecord.objects.filter(hs4="")
     qs = _apply_filters(qs, request.query_params)
 
+    country = request.query_params.get("country")
     rows = (
         qs.values("year")
         .annotate(
@@ -153,8 +171,8 @@ def stats_yearwise(request):
         "rows": [
             {
                 "year":          r["year"],
-                "italy_to_india": float(r["italy_to_india"]),
-                "india_to_italy": float(r["india_to_italy"]),
+                "italy_to_india": float(_country_totals(country, r["italy_to_india"], r["india_to_italy"])[0]),
+                "india_to_italy": float(_country_totals(country, r["italy_to_india"], r["india_to_italy"])[1]),
             }
             for r in rows
         ]
@@ -168,6 +186,7 @@ def stats_sector_wise(request):
     qs = TradeRecord.objects.filter(hs4="").exclude(sector="")
     qs = _apply_filters(qs, request.query_params)
 
+    country = request.query_params.get("country")
     rows = (
         qs.values("sector")
         .annotate(
@@ -181,8 +200,8 @@ def stats_sector_wise(request):
         "rows": [
             {
                 "sector":        r["sector"],
-                "italy_to_india": float(r["italy_to_india"]),
-                "india_to_italy": float(r["india_to_italy"]),
+                "italy_to_india": float(_country_totals(country, r["italy_to_india"], r["india_to_italy"])[0]),
+                "india_to_italy": float(_country_totals(country, r["italy_to_india"], r["india_to_italy"])[1]),
             }
             for r in rows
         ]
@@ -195,6 +214,13 @@ def stats_top_products(request):
     """Top 10 HS4 product categories by total trade value."""
     qs = TradeRecord.objects.exclude(hs4="")
     qs = _apply_filters(qs, request.query_params)
+    country = request.query_params.get("country")
+
+    total_expr = F("italy_to_india") + F("india_to_italy")
+    if country == ITALY_IMPORTS_FROM_INDIA:
+        total_expr = F("india_to_italy")
+    elif country == INDIA_IMPORTS_FROM_ITALY:
+        total_expr = F("italy_to_india")
 
     rows = (
         qs.values("hs4")
@@ -203,7 +229,7 @@ def stats_top_products(request):
             italy_to_india=Coalesce(Sum("italy_to_india_value"), Decimal("0")),
             india_to_italy=Coalesce(Sum("india_to_italy_value"), Decimal("0")),
         )
-        .annotate(total=F("italy_to_india") + F("india_to_italy"))
+        .annotate(total=total_expr)
         .order_by("-total")[:10]
     )
 
@@ -212,8 +238,8 @@ def stats_top_products(request):
             {
                 "hs4":           r["hs4"],
                 "description":   r["description"],
-                "italy_to_india": float(r["italy_to_india"]),
-                "india_to_italy": float(r["india_to_italy"]),
+                "italy_to_india": float(_country_totals(country, r["italy_to_india"], r["india_to_italy"])[0]),
+                "india_to_italy": float(_country_totals(country, r["italy_to_india"], r["india_to_italy"])[1]),
                 "total":          float(r["total"]),
             }
             for r in rows
@@ -244,8 +270,8 @@ def filter_options(request):
         TradeRecord.objects.exclude(macrosector="").values_list("macrosector", flat=True).distinct()
     )
     country_options = [
-        {"value": "italy_imports_from_india", "label": "Italian imports from India"},
-        {"value": "india_imports_from_italy", "label": "Indian imports from Italy"},
+        {"value": ITALY_IMPORTS_FROM_INDIA, "label": "Italian imports from India"},
+        {"value": INDIA_IMPORTS_FROM_ITALY, "label": "Indian imports from Italy"},
     ]
 
     return Response({

@@ -6,7 +6,16 @@ import {
 import { Icons } from "../../constants/dashboardIcons";
 import { COLORS, fmtValue, fmtTooltip } from "../../constants/chartColors";
 
-export default function ChartsSection({ yearwise, sectorWise, topProducts, loading }) {
+const ITALY_IMPORTS_FROM_INDIA = "italy_imports_from_india";
+const INDIA_IMPORTS_FROM_ITALY = "india_imports_from_italy";
+
+export default function ChartsSection({ yearwise, sectorWise, topProducts, loading, country }) {
+  const showItalyToIndia = country !== ITALY_IMPORTS_FROM_INDIA;
+  const showIndiaToItaly = country !== INDIA_IMPORTS_FROM_ITALY;
+  const trendKey = country === ITALY_IMPORTS_FROM_INDIA ? "india_to_italy" : "italy_to_india";
+  const trendName = country === ITALY_IMPORTS_FROM_INDIA ? "India → Italy" : "Italy → India";
+  const trendColor = country === ITALY_IMPORTS_FROM_INDIA ? COLORS.orange : COLORS.blue;
+
   const renderProductTick = useCallback(({ x, y, payload }) => {
     const product = topProducts.find((p) => p.hs4 === payload.value);
     const raw = (product?.description || "").trim();
@@ -46,8 +55,12 @@ export default function ChartsSection({ yearwise, sectorWise, topProducts, loadi
               <YAxis tickFormatter={fmtValue} axisLine={false} tickLine={false} />
               <Tooltip formatter={fmtTooltip} />
               <Legend />
-              <Bar dataKey="italy_to_india" name="Italy → India" fill={COLORS.green}  radius={[4, 4, 0, 0]} />
-              <Bar dataKey="india_to_italy" name="India → Italy" fill={COLORS.orange} radius={[4, 4, 0, 0]} />
+              {showItalyToIndia && (
+                <Bar dataKey="italy_to_india" name="Italy → India" fill={COLORS.green} radius={[4, 4, 0, 0]} />
+              )}
+              {showIndiaToItaly && (
+                <Bar dataKey="india_to_italy" name="India → Italy" fill={COLORS.orange} radius={[4, 4, 0, 0]} />
+              )}
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -74,10 +87,10 @@ export default function ChartsSection({ yearwise, sectorWise, topProducts, loadi
                 <Tooltip formatter={fmtTooltip} />
                 <Area
                   type="monotone"
-                  dataKey="italy_to_india"
-                  name="Italy → India"
-                  stroke={COLORS.blue}
-                  fill={COLORS.blue}
+                  dataKey={trendKey}
+                  name={trendName}
+                  stroke={trendColor}
+                  fill={trendColor}
                   fillOpacity={0.1}
                   strokeWidth={2}
                 />
@@ -133,8 +146,12 @@ export default function ChartsSection({ yearwise, sectorWise, topProducts, loadi
                   }}
                 />
                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-                <Bar dataKey="italy_to_india" name="Italy → India" fill={COLORS.green}  radius={[0, 3, 3, 0]} barSize={10} />
-                <Bar dataKey="india_to_italy" name="India → Italy" fill={COLORS.orange} radius={[0, 3, 3, 0]} barSize={10} />
+                {showItalyToIndia && (
+                  <Bar dataKey="italy_to_india" name="Italy → India" fill={COLORS.green} radius={[0, 3, 3, 0]} barSize={10} />
+                )}
+                {showIndiaToItaly && (
+                  <Bar dataKey="india_to_italy" name="India → Italy" fill={COLORS.orange} radius={[0, 3, 3, 0]} barSize={10} />
+                )}
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -167,8 +184,12 @@ export default function ChartsSection({ yearwise, sectorWise, topProducts, loadi
               />
               <Tooltip formatter={fmtTooltip} />
               <Legend />
-              <Bar dataKey="italy_to_india" name="Italy → India" fill={COLORS.green}  radius={[0, 4, 4, 0]} />
-              <Bar dataKey="india_to_italy" name="India → Italy" fill={COLORS.orange} radius={[0, 4, 4, 0]} />
+              {showItalyToIndia && (
+                <Bar dataKey="italy_to_india" name="Italy → India" fill={COLORS.green} radius={[0, 4, 4, 0]} />
+              )}
+              {showIndiaToItaly && (
+                <Bar dataKey="india_to_italy" name="India → Italy" fill={COLORS.orange} radius={[0, 4, 4, 0]} />
+              )}
             </BarChart>
           </ResponsiveContainer>
         )}
