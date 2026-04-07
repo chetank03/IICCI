@@ -63,7 +63,7 @@ export default function TradeRecordModal({ record, hs2Summary, onClose }) {
                 <>
                   {record.macrosector && (
                     <div className="modal-pill-row">
-                      <span className="modal-pill-label">Macrosector</span>
+                      <span className="modal-pill-label">Product Category</span>
                       <span className="modal-pill modal-pill--blue">{record.macrosector}</span>
                     </div>
                   )}
@@ -75,7 +75,7 @@ export default function TradeRecordModal({ record, hs2Summary, onClose }) {
                   )}
                   {record.keyword && (
                     <div className="modal-pill-row">
-                      <span className="modal-pill-label">Subsector</span>
+                      <span className="modal-pill-label">Specific Products</span>
                       <span className="modal-pill modal-pill--green">{record.keyword}</span>
                     </div>
                   )}
@@ -86,19 +86,13 @@ export default function TradeRecordModal({ record, hs2Summary, onClose }) {
             </div>
 
             <div className="modal-section">
-              <h4 className="modal-section-title">IICCI Brochure Categories</h4>
+              <h4 className="modal-section-title">Sector Overview</h4>
               {record.sector ? (
                 <>
                   <div className="modal-pill-row">
-                    <span className="modal-pill-label">Primary Category</span>
+                    <span className="modal-pill-label">Sector</span>
                     <span className="modal-pill modal-pill--orange">{record.sector}</span>
                   </div>
-                  {record.brochure2 && (
-                    <div className="modal-pill-row">
-                      <span className="modal-pill-label">Secondary Category</span>
-                      <span className="modal-pill modal-pill--amber">{record.brochure2}</span>
-                    </div>
-                  )}
                 </>
               ) : (
                 <span className="modal-empty-text">No category data</span>

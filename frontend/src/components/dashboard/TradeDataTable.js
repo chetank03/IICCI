@@ -1,6 +1,4 @@
-import { Link } from "react-router-dom";
 import { fetchTradeTable } from "../../api/stats";
-import { Icons } from "../../constants/dashboardIcons";
 
 export default function TradeDataTable({
   rows, total, page, pageSize, loading,
@@ -9,9 +7,29 @@ export default function TradeDataTable({
   const totalPages = Math.ceil(total / pageSize);
 
   const exportCsv = async () => {
-    const data = await fetchTradeTable(filters, 1, 10000);
-    const items = data.items || [];
-    const header = ["Year", "HS2", "HS4", "Description", "Sector", "Italy→India (M USD)", "India→Italy (M USD)"];
+    const exportPageSize = 100;
+    let currentPage = 1;
+    let items = [];
+
+    while (true) {
+      const data = await fetchTradeTable(filters, currentPage, exportPageSize);
+      const pageItems = data.items || [];
+      items = items.concat(pageItems);
+      if (pageItems.length < exportPageSize || items.length >= (data.total || 0)) break;
+      currentPage += 1;
+    }
+
+    const header = [
+      "Year",
+      "HS2",
+      "HS4",
+      "Description",
+      "Sector",
+      "Product Category",
+      "Specific Products",
+      "Italy→India (M USD)",
+      "India→Italy (M USD)",
+    ];
     const lines  = [header.join(",")];
     for (const r of items) {
       lines.push([
@@ -20,6 +38,8 @@ export default function TradeDataTable({
         r.hs4 || "",
         `"${(r.description || "").replace(/"/g, '""')}"`,
         `"${(r.sector || "").replace(/"/g, '""')}"`,
+        `"${(r.macrosector || "").replace(/"/g, '""')}"`,
+        `"${(r.keyword || "").replace(/"/g, '""')}"`,
         parseFloat(r.italy_to_india_value).toFixed(2),
         parseFloat(r.india_to_italy_value).toFixed(2),
       ].join(","));
@@ -57,8 +77,9 @@ export default function TradeDataTable({
               <th>HS2</th>
               <th>HS4</th>
               <th>Description</th>
-              <th>Macrosector</th>
+              <th>Product Category</th>
               <th>Sector</th>
+              <th>Specific Products</th>
               <th>Italy → India (M USD)</th>
               <th>India → Italy (M USD)</th>
               <th>Action</th>
@@ -67,7 +88,7 @@ export default function TradeDataTable({
           <tbody>
             {rows.length === 0 && !loading ? (
               <tr>
-                <td colSpan={9} className="td-empty">No records found for the selected filters.</td>
+                <td colSpan={10} className="td-empty">No records found for the selected filters.</td>
               </tr>
             ) : (
               rows.map((r) => (
@@ -78,6 +99,7 @@ export default function TradeDataTable({
                   <td className="td-desc">{r.description}</td>
                   <td className="td-macro">{r.macrosector || <span className="td-dash">—</span>}</td>
                   <td>{r.sector || <span className="td-dash">—</span>}</td>
+                  <td>{r.keyword || <span className="td-dash">—</span>}</td>
                   <td className="td-value">{parseFloat(r.italy_to_india_value).toFixed(2)}</td>
                   <td className="td-value">{parseFloat(r.india_to_italy_value).toFixed(2)}</td>
                   <td>
@@ -104,19 +126,6 @@ export default function TradeDataTable({
           <button disabled={page >= totalPages} onClick={() => onPageChange(page + 1)}>Next →</button>
         </div>
       )}
-    </div>
-  );
-}
-
-export function DataTabLocked() {
-  return (
-    <div className="data-tab-placeholder">
-      <div className="signin-prompt-inline">
-        <div className="signin-lock">{Icons.lock}</div>
-        <h3>Sign In Required</h3>
-        <p>Sign in to access the full trade data table with filtering and CSV export.</p>
-        <Link to="/login" className="signin-btn">&#x2192; Sign In</Link>
-      </div>
     </div>
   );
 }

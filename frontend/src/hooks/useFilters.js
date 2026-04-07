@@ -1,8 +1,8 @@
 import { useState, useRef } from "react";
 
 export const EMPTY_FILTERS = {
-  year: "", sector: "", hs2: "", hs4: "", brochure2: "",
-  hs2_description: "", macrosector: "", keyword: "", search: "",
+  year: "", country: "", hs2: "", hs4: "", sector: "",
+  macrosector: "", keyword: "", search: "",
 };
 
 function filtersFromUrl() {
@@ -28,6 +28,11 @@ export function useFilters({ onChange }) {
   const [filtersOpen, setFiltersOpen] = useState(true);
   const debounceRef = useRef(null);
 
+  const applySearch = (nextFilters = filters) => {
+    clearTimeout(debounceRef.current);
+    onChange(nextFilters);
+  };
+
   const handleFilter = (key, value) => {
     const next = { ...filters, [key]: value };
     if (key === "hs2") next.hs4 = "";
@@ -42,6 +47,7 @@ export function useFilters({ onChange }) {
   };
 
   const clearFilters = () => {
+    clearTimeout(debounceRef.current);
     setFilters(EMPTY_FILTERS);
     syncFiltersToUrl(EMPTY_FILTERS);
     onChange(EMPTY_FILTERS);
@@ -49,5 +55,5 @@ export function useFilters({ onChange }) {
 
   const hasActiveFilters = Object.values(filters).some((v) => v !== "");
 
-  return { filters, filtersOpen, setFiltersOpen, handleFilter, clearFilters, hasActiveFilters };
+  return { filters, filtersOpen, setFiltersOpen, handleFilter, clearFilters, hasActiveFilters, applySearch };
 }

@@ -29,10 +29,20 @@ export default function FilterPanel({
       {filtersOpen && (
         <div className="filter-grid">
           <div className="filter-field">
-            <label>Calendar Year</label>
+            <label>Year</label>
             <select value={filters.year} onChange={(e) => onFilterChange("year", e.target.value)}>
               <option value="">All Years</option>
               {options.years.map((y) => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+
+          <div className="filter-field">
+            <label>Country</label>
+            <select value={filters.country} onChange={(e) => onFilterChange("country", e.target.value)}>
+              <option value="">All Countries</option>
+              {options.country_options.map((country) => (
+                <option key={country.value} value={country.value}>{country.label}</option>
+              ))}
             </select>
           </div>
 
@@ -61,7 +71,7 @@ export default function FilterPanel({
           </div>
 
           <div className="filter-field">
-            <label>Sector (IICCI Brochure 1)</label>
+            <label>Sector</label>
             <select value={filters.sector} onChange={(e) => onFilterChange("sector", e.target.value)}>
               <option value="">All Sectors</option>
               {options.sectors.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -69,29 +79,9 @@ export default function FilterPanel({
           </div>
 
           <div className="filter-field">
-            <label>IICCI Brochure 2</label>
-            <select value={filters.brochure2} onChange={(e) => onFilterChange("brochure2", e.target.value)}>
-              <option value="">All Brochures</option>
-              {options.brochure2_options.map((b) => <option key={b} value={b}>{b}</option>)}
-            </select>
-          </div>
-
-          <div className="filter-field">
-            <label>HS Code 2 Description</label>
-            <select value={filters.hs2_description} onChange={(e) => onFilterChange("hs2_description", e.target.value)}>
-              <option value="">All Descriptions</option>
-              {options.hs2_desc_options.map((h) => (
-                <option key={h.hs2} value={h.hs2_description}>
-                  {h.hs2_description.length > 60 ? h.hs2_description.slice(0, 57) + "..." : h.hs2_description}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="filter-field">
-            <label>Macrosector</label>
+            <label>Product Category</label>
             <select value={filters.macrosector} onChange={(e) => onFilterChange("macrosector", e.target.value)}>
-              <option value="">All Macrosectors</option>
+              <option value="">All Product Categories</option>
               {options.macrosector_options.map((m) => (
                 <option key={m} value={m}>{m.length > 60 ? m.slice(0, 57) + "..." : m}</option>
               ))}
@@ -99,9 +89,9 @@ export default function FilterPanel({
           </div>
 
           <div className="filter-field">
-            <label>Keyword (IICCI Subsector)</label>
+            <label>Specific Products</label>
             <select value={filters.keyword} onChange={(e) => onFilterChange("keyword", e.target.value)}>
-              <option value="">All Keywords</option>
+              <option value="">All Specific Products</option>
               {options.keyword_options.map((k) => <option key={k} value={k}>{k}</option>)}
             </select>
           </div>

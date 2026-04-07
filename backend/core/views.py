@@ -72,27 +72,26 @@ def _send_email(subject, message, recipient_list, fail_silently=True):
 def _apply_filters(qs, params):
     """Apply common filters to a queryset."""
     year        = params.get("year")
+    country     = params.get("country")
     sector      = params.get("sector")
     hs2         = params.get("hs2")
     hs4         = params.get("hs4")
-    brochure2   = params.get("brochure2")
-    hs2_description = params.get("hs2_description")
     keyword     = params.get("keyword")
     macrosector = params.get("macrosector")
     search      = params.get("search", "").strip()
 
     if year:
         qs = qs.filter(year=year)
+    if country == "italy_imports_from_india":
+        qs = qs.filter(india_to_italy_value__gt=0)
+    elif country == "india_imports_from_italy":
+        qs = qs.filter(italy_to_india_value__gt=0)
     if sector:
         qs = qs.filter(sector=sector)
     if hs2:
         qs = qs.filter(hs2=hs2)
     if hs4:
         qs = qs.filter(hs4=hs4)
-    if brochure2:
-        qs = qs.filter(brochure2=brochure2)
-    if hs2_description:
-        qs = qs.filter(hs2_description=hs2_description)
     if keyword:
         qs = qs.filter(keyword=keyword)
     if macrosector:
@@ -101,6 +100,8 @@ def _apply_filters(qs, params):
         qs = qs.filter(
             Q(description__icontains=search) |
             Q(sector__icontains=search) |
+            Q(keyword__icontains=search) |
+            Q(macrosector__icontains=search) |
             Q(hs2__icontains=search) |
             Q(hs4__icontains=search) |
             Q(hs2_description__icontains=search)
@@ -236,29 +237,25 @@ def filter_options(request):
         TradeRecord.objects.exclude(hs4="")
         .values("hs4", "description").distinct().order_by("hs4")
     )
-    brochure2_options = sorted(
-        TradeRecord.objects.exclude(brochure2="").values_list("brochure2", flat=True).distinct()
-    )
-    hs2_desc_options = list(
-        TradeRecord.objects.filter(hs4="").exclude(hs2_description="")
-        .values("hs2", "hs2_description").distinct().order_by("hs2")
-    )
     keyword_options = sorted(
         TradeRecord.objects.exclude(keyword="").values_list("keyword", flat=True).distinct()
     )
     macrosector_options = sorted(
         TradeRecord.objects.exclude(macrosector="").values_list("macrosector", flat=True).distinct()
     )
+    country_options = [
+        {"value": "italy_imports_from_india", "label": "Italian imports from India"},
+        {"value": "india_imports_from_italy", "label": "Indian imports from Italy"},
+    ]
 
     return Response({
         "years":             years,
         "sectors":           sectors,
         "hs2_options":       hs2_options,
         "hs4_options":       hs4_options,
-        "brochure2_options": brochure2_options,
-        "hs2_desc_options":  hs2_desc_options,
         "keyword_options":   keyword_options,
         "macrosector_options": macrosector_options,
+        "country_options":   country_options,
     })
 
 
@@ -269,7 +266,7 @@ MAX_PAGE_SIZE = 100
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def trade_table(request):
     qs = TradeRecord.objects.all().order_by("-year", "hs2", "hs4")
     qs = _apply_filters(qs, request.query_params)

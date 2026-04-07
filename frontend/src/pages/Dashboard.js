@@ -1,6 +1,4 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
 import { fetchFilterOptions, fetchSummary } from "../api/stats";
 
 import { useFilters } from "../hooks/useFilters";
@@ -10,7 +8,7 @@ import { useTableData } from "../hooks/useTableData";
 import FilterPanel from "../components/dashboard/FilterPanel";
 import KPICards from "../components/dashboard/KPICards";
 import ChartsSection from "../components/dashboard/ChartsSection";
-import TradeDataTable, { DataTabLocked } from "../components/dashboard/TradeDataTable";
+import TradeDataTable from "../components/dashboard/TradeDataTable";
 import TradeRecordModal from "../components/dashboard/TradeRecordModal";
 
 import { Icons } from "../constants/dashboardIcons";
@@ -19,12 +17,10 @@ import "./Dashboard.css";
 
 const EMPTY_OPTIONS = {
   years: [], sectors: [], hs2_options: [], hs4_options: [],
-  brochure2_options: [], hs2_desc_options: [], macrosector_options: [], keyword_options: [],
+  macrosector_options: [], keyword_options: [], country_options: [],
 };
 
 export default function Dashboard() {
-  const { user } = useAuth();
-
   const [options,         setOptions]         = useState(EMPTY_OPTIONS);
   const [activeTab,       setActiveTab]        = useState("analytics");
   const [selectedRecord,  setSelectedRecord]   = useState(null);
@@ -37,11 +33,11 @@ export default function Dashboard() {
 
   const { tableRows, tablePage, tableTotal, tableLoading, loadTable, PAGE_SIZE } = useTableData();
 
-  const { filters, filtersOpen, setFiltersOpen, handleFilter, clearFilters, hasActiveFilters } =
+  const { filters, filtersOpen, setFiltersOpen, handleFilter, clearFilters, hasActiveFilters, applySearch } =
     useFilters({
       onChange: (f) => {
         loadData(f);
-        if (activeTab === "data") loadTable(f, 1);
+        loadTable(f, 1);
       },
     });
 
@@ -70,28 +66,43 @@ export default function Dashboard() {
               India &ndash; Italy Bilateral Trade Analytics
             </h2>
             <p>Explore import-export dynamics, sector performance, and emerging trends between India and Italy.</p>
+            <p className="hero-note">
+              These statistics have been collected by the IICCI - Indo-Italian Chamber of Commerce and Industry, primarily from the Access to Market portal of the European Commission and, in some instances, from the portal of the Indian Ministry of Commerce.
+            </p>
           </div>
         </div>
       </div>
 
       {/* Search bar */}
       <div className="search-bar-wrap">
-        <span className="search-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-        </span>
-        <input
-          className="search-bar"
-          type="text"
-          placeholder="Search by HS Code, sector, or description..."
-          value={filters.search}
-          onChange={(e) => handleFilter("search", e.target.value)}
-        />
-        {filters.search && (
-          <button className="search-clear" onClick={() => handleFilter("search", "")}>✕</button>
-        )}
+        <label className="search-label" htmlFor="keyword-search">Search by Keywords</label>
+        <div className="search-bar-inner">
+          <div className="search-input-wrap">
+            <span className="search-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+            </span>
+            <input
+              id="keyword-search"
+              className="search-bar"
+              type="text"
+              placeholder="Search by keywords, HS code, sector, product category, or description"
+              value={filters.search}
+              onChange={(e) => handleFilter("search", e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") applySearch({ ...filters, search: e.currentTarget.value });
+              }}
+            />
+            {filters.search && (
+              <button className="search-clear" onClick={() => handleFilter("search", "")}>✕</button>
+            )}
+          </div>
+          <button className="search-submit" onClick={() => applySearch()}>
+            Search by Keywords
+          </button>
+        </div>
       </div>
 
       <FilterPanel
@@ -103,20 +114,6 @@ export default function Dashboard() {
         onFilterChange={handleFilter}
         onClearFilters={clearFilters}
       />
-
-      {/* Sign In prompt (guests) */}
-      {!user && (
-        <div className="signin-prompt">
-          <div className="signin-blur-bg">
-            <div className="signin-overlay">
-              <div className="signin-lock">{Icons.lock}</div>
-              <h3>Sign In Required</h3>
-              <p>Sign in to use advanced search and filtering across all trade data fields.</p>
-              <Link to="/login" className="signin-btn">&#x2192; Sign In</Link>
-            </div>
-          </div>
-        </div>
-      )}
 
       {loading && <div className="loading-bar" />}
 
@@ -150,7 +147,7 @@ export default function Dashboard() {
           className={`tab ${activeTab === "data" ? "active" : ""}`}
           onClick={() => {
             setActiveTab("data");
-            if (user) loadTable(filters, 1);
+            loadTable(filters, 1);
           }}
         >
           Data Table
@@ -167,20 +164,16 @@ export default function Dashboard() {
       )}
 
       {activeTab === "data" && (
-        user ? (
-          <TradeDataTable
-            rows={tableRows}
-            total={tableTotal}
-            page={tablePage}
-            pageSize={PAGE_SIZE}
-            loading={tableLoading}
-            filters={filters}
-            onPageChange={(p) => loadTable(filters, p)}
-            onRowClick={setSelectedRecord}
-          />
-        ) : (
-          <DataTabLocked />
-        )
+        <TradeDataTable
+          rows={tableRows}
+          total={tableTotal}
+          page={tablePage}
+          pageSize={PAGE_SIZE}
+          loading={tableLoading}
+          filters={filters}
+          onPageChange={(p) => loadTable(filters, p)}
+          onRowClick={setSelectedRecord}
+        />
       )}
 
       <TradeRecordModal
