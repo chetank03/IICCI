@@ -5,16 +5,18 @@ import {
 } from "recharts";
 import { Icons } from "../../constants/dashboardIcons";
 import { COLORS, fmtValue, fmtTooltip } from "../../constants/chartColors";
-
-const ITALY_IMPORTS_FROM_INDIA = "italy_imports_from_india";
-const INDIA_IMPORTS_FROM_ITALY = "india_imports_from_italy";
+import {
+  COUNTRY_FILTER_VALUES,
+  ITALY_TO_INDIA_LABEL,
+  INDIA_TO_ITALY_LABEL,
+} from "../../constants/tradeFlows";
 
 export default function ChartsSection({ yearwise, sectorWise, topProducts, loading, country }) {
-  const showItalyToIndia = country !== ITALY_IMPORTS_FROM_INDIA;
-  const showIndiaToItaly = country !== INDIA_IMPORTS_FROM_ITALY;
-  const trendKey = country === ITALY_IMPORTS_FROM_INDIA ? "india_to_italy" : "italy_to_india";
-  const trendName = country === ITALY_IMPORTS_FROM_INDIA ? "India → Italy" : "Italy → India";
-  const trendColor = country === ITALY_IMPORTS_FROM_INDIA ? COLORS.orange : COLORS.blue;
+  const showItalyToIndia = country !== COUNTRY_FILTER_VALUES.italyImportsFromIndia;
+  const showIndiaToItaly = country !== COUNTRY_FILTER_VALUES.indiaImportsFromItaly;
+  const trendKey = country === COUNTRY_FILTER_VALUES.italyImportsFromIndia ? "india_to_italy" : "italy_to_india";
+  const trendName = country === COUNTRY_FILTER_VALUES.italyImportsFromIndia ? INDIA_TO_ITALY_LABEL : ITALY_TO_INDIA_LABEL;
+  const trendColor = country === COUNTRY_FILTER_VALUES.italyImportsFromIndia ? COLORS.orange : COLORS.blue;
 
   const renderProductTick = useCallback(({ x, y, payload }) => {
     const product = topProducts.find((p) => p.hs4 === payload.value);
@@ -56,10 +58,10 @@ export default function ChartsSection({ yearwise, sectorWise, topProducts, loadi
               <Tooltip formatter={fmtTooltip} />
               <Legend />
               {showItalyToIndia && (
-                <Bar dataKey="italy_to_india" name="Italy → India" fill={COLORS.green} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="italy_to_india" name={ITALY_TO_INDIA_LABEL} fill={COLORS.green} radius={[4, 4, 0, 0]} />
               )}
               {showIndiaToItaly && (
-                <Bar dataKey="india_to_italy" name="India → Italy" fill={COLORS.orange} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="india_to_italy" name={INDIA_TO_ITALY_LABEL} fill={COLORS.orange} radius={[4, 4, 0, 0]} />
               )}
             </BarChart>
           </ResponsiveContainer>
@@ -147,10 +149,10 @@ export default function ChartsSection({ yearwise, sectorWise, topProducts, loadi
                 />
                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
                 {showItalyToIndia && (
-                  <Bar dataKey="italy_to_india" name="Italy → India" fill={COLORS.green} radius={[0, 3, 3, 0]} barSize={10} />
+                  <Bar dataKey="italy_to_india" name={ITALY_TO_INDIA_LABEL} fill={COLORS.green} radius={[0, 3, 3, 0]} barSize={10} />
                 )}
                 {showIndiaToItaly && (
-                  <Bar dataKey="india_to_italy" name="India → Italy" fill={COLORS.orange} radius={[0, 3, 3, 0]} barSize={10} />
+                  <Bar dataKey="india_to_italy" name={INDIA_TO_ITALY_LABEL} fill={COLORS.orange} radius={[0, 3, 3, 0]} barSize={10} />
                 )}
               </BarChart>
             </ResponsiveContainer>
@@ -185,10 +187,10 @@ export default function ChartsSection({ yearwise, sectorWise, topProducts, loadi
               <Tooltip formatter={fmtTooltip} />
               <Legend />
               {showItalyToIndia && (
-                <Bar dataKey="italy_to_india" name="Italy → India" fill={COLORS.green} radius={[0, 4, 4, 0]} />
+                <Bar dataKey="italy_to_india" name={ITALY_TO_INDIA_LABEL} fill={COLORS.green} radius={[0, 4, 4, 0]} />
               )}
               {showIndiaToItaly && (
-                <Bar dataKey="india_to_italy" name="India → Italy" fill={COLORS.orange} radius={[0, 4, 4, 0]} />
+                <Bar dataKey="india_to_italy" name={INDIA_TO_ITALY_LABEL} fill={COLORS.orange} radius={[0, 4, 4, 0]} />
               )}
             </BarChart>
           </ResponsiveContainer>

@@ -1,5 +1,6 @@
 import { Icons } from "../../constants/dashboardIcons";
 import { fmtValue } from "../../constants/chartColors";
+import { ITALY_TO_INDIA_LABEL, INDIA_TO_ITALY_LABEL } from "../../constants/tradeFlows";
 
 function yoy(current, prev, prevSummary, activeYear) {
   if (!prevSummary || !activeYear || !prev || prev === 0) return null;
@@ -19,18 +20,18 @@ export default function KPICards({ summary, prevSummary, productCount, activeYea
       iconEl: Icons.exchange,
     },
     {
-      label:  "Imports from Italy",
+      label:  ITALY_TO_INDIA_LABEL,
       value:  summary.india_imports_from_italy,
       prev:   prevSummary?.india_imports_from_italy,
-      sub:    "India's imports from Italy",
+      sub:    ITALY_TO_INDIA_LABEL,
       icon:   "green",
       iconEl: Icons.trendUp,
     },
     {
-      label:  "Imports from India",
+      label:  INDIA_TO_ITALY_LABEL,
       value:  summary.italy_imports_from_india,
       prev:   prevSummary?.italy_imports_from_india,
-      sub:    "Italy's imports from India",
+      sub:    INDIA_TO_ITALY_LABEL,
       icon:   "orange",
       iconEl: Icons.trendDown,
     },

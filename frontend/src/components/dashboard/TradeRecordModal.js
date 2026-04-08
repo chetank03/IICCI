@@ -1,4 +1,5 @@
 import { fmtValue } from "../../constants/chartColors";
+import { ITALY_TO_INDIA_LABEL, INDIA_TO_ITALY_LABEL } from "../../constants/tradeFlows";
 
 export default function TradeRecordModal({ record, hs2Summary, onClose }) {
   if (!record) return null;
@@ -104,7 +105,7 @@ export default function TradeRecordModal({ record, hs2Summary, onClose }) {
             <h4 className="modal-section-title">Trade Flow Analysis</h4>
             <div className="modal-flow-item">
               <div className="modal-flow-label">
-                <span className="modal-flow-direction modal-flow-direction--green">Italy → India</span>
+                <span className="modal-flow-direction modal-flow-direction--green">{ITALY_TO_INDIA_LABEL}</span>
                 <span className="modal-flow-value">{fmtValue(italy)}</span>
               </div>
               <div className="modal-flow-bar-wrap">
@@ -114,7 +115,7 @@ export default function TradeRecordModal({ record, hs2Summary, onClose }) {
             </div>
             <div className="modal-flow-item">
               <div className="modal-flow-label">
-                <span className="modal-flow-direction modal-flow-direction--orange">India → Italy</span>
+                <span className="modal-flow-direction modal-flow-direction--orange">{INDIA_TO_ITALY_LABEL}</span>
                 <span className="modal-flow-value">{fmtValue(india)}</span>
               </div>
               <div className="modal-flow-bar-wrap">
@@ -129,13 +130,13 @@ export default function TradeRecordModal({ record, hs2Summary, onClose }) {
               <h4 className="modal-section-title">HS2 Chapter Level (Aggregated · {record.year})</h4>
               <div className="modal-hs2-row">
                 <div className="modal-hs2-item">
-                  <span className="modal-hs2-label">Italy → India (HS2)</span>
+                  <span className="modal-hs2-label">{ITALY_TO_INDIA_LABEL} (HS2)</span>
                   <span className="modal-hs2-value modal-hs2-value--green">
                     {fmtValue(hs2Summary.india_imports_from_italy)}
                   </span>
                 </div>
                 <div className="modal-hs2-item">
-                  <span className="modal-hs2-label">India → Italy (HS2)</span>
+                  <span className="modal-hs2-label">{INDIA_TO_ITALY_LABEL} (HS2)</span>
                   <span className="modal-hs2-value modal-hs2-value--orange">
                     {fmtValue(hs2Summary.italy_imports_from_india)}
                   </span>

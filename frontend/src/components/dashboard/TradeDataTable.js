@@ -1,4 +1,5 @@
 import { fetchTradeTable } from "../../api/stats";
+import { ITALY_TO_INDIA_LABEL, INDIA_TO_ITALY_LABEL } from "../../constants/tradeFlows";
 
 export default function TradeDataTable({
   rows, total, page, pageSize, loading,
@@ -27,8 +28,8 @@ export default function TradeDataTable({
       "Sector",
       "Product Category",
       "Specific Products",
-      "Italy→India (M USD)",
-      "India→Italy (M USD)",
+      `${ITALY_TO_INDIA_LABEL} (M USD)`,
+      `${INDIA_TO_ITALY_LABEL} (M USD)`,
     ];
     const lines  = [header.join(",")];
     for (const r of items) {
@@ -80,8 +81,8 @@ export default function TradeDataTable({
               <th>Product Category</th>
               <th>Sector</th>
               <th>Specific Products</th>
-              <th>Italy → India (M USD)</th>
-              <th>India → Italy (M USD)</th>
+              <th>{ITALY_TO_INDIA_LABEL} (M USD)</th>
+              <th>{INDIA_TO_ITALY_LABEL} (M USD)</th>
               <th>Action</th>
             </tr>
           </thead>
