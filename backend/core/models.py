@@ -46,22 +46,6 @@ class TradeRecord(models.Model):
         return f"{self.year} - {code}"
 
 
-class EmailOTP(models.Model):
-    email = models.EmailField()
-    otp = models.CharField(max_length=6)
-    created_at = models.DateTimeField(auto_now_add=True)
-    is_used = models.BooleanField(default=False)
-
-    def is_expired(self):
-        return (timezone.now() - self.created_at).total_seconds() > 600
-
-    class Meta:
-        ordering = ["-created_at"]
-
-    def __str__(self):
-        return f"{self.email} - {'used' if self.is_used else 'active'}"
-
-
 class UserProfile(models.Model):
     PENDING = "pending"
     APPROVED = "approved"

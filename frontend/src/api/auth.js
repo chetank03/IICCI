@@ -45,38 +45,14 @@ export async function fetchCurrentUser() {
   return res.json();
 }
 
-export async function requestOtp(email) {
-  const res = await fetch(`${API_BASE}/auth/request-otp/`, {
+export async function firebaseAuth(idToken) {
+  const res = await fetch(`${API_BASE}/auth/firebase/`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ idToken }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.detail || "Failed to send OTP");
-  return data;
-}
-
-export async function verifyOtp(email, otp) {
-  const res = await fetch(`${API_BASE}/auth/verify-otp/`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
-    body: JSON.stringify({ email, otp }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.detail || "Invalid OTP");
-  return data;
-}
-
-export async function signupUser(username, password) {
-  const res = await fetch(`${API_BASE}/auth/signup/`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
-    body: JSON.stringify({ username, password }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.detail || "Signup failed");
+  if (!res.ok) throw new Error(data.detail || "Firebase authentication failed");
   return data;
 }

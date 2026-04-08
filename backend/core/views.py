@@ -1,7 +1,7 @@
 import base64
 import json
 import logging
-import random
+import re
 import tempfile
 import os
 import urllib.request
@@ -16,12 +16,14 @@ from django.db.models import F, Max, Q, Sum
 from django.db.models.functions import Coalesce
 from django.middleware.csrf import get_token
 from django.views.decorators.csrf import ensure_csrf_cookie
+import firebase_admin
+from firebase_admin import auth as firebase_auth, credentials
 
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 
-from .models import TradeRecord, EmailOTP, UserProfile
+from .models import TradeRecord, UserProfile
 
 logger = logging.getLogger("core")
 
@@ -71,6 +73,50 @@ def _send_email(subject, message, recipient_list, fail_silently=True):
         if not fail_silently:
             raise
         logger.exception("Mailjet email failed to %s", recipient_list)
+
+
+def _generate_username(email, full_name=""):
+    base_parts = [full_name.strip(), email.split("@", 1)[0]]
+    base = next((part for part in base_parts if part), "user")
+    slug = re.sub(r"[^a-z0-9]+", "_", base.lower()).strip("_") or "user"
+    slug = slug[:150]
+
+    candidate = slug
+    suffix = 1
+    while User.objects.filter(username=candidate).exists():
+        suffix_str = f"_{suffix}"
+        candidate = f"{slug[:150 - len(suffix_str)]}{suffix_str}"
+        suffix += 1
+    return candidate
+
+
+def _notify_admins_about_signup(username, email):
+    admin_emails = list(User.objects.filter(is_staff=True).exclude(email="").values_list("email", flat=True))
+    if admin_emails:
+        try:
+            _send_email(
+                subject=f"New signup request: {username}",
+                message=f"User '{username}' ({email}) has requested access.\n\nLog in to approve or reject: https://iicci.up.railway.app/admin",
+                recipient_list=admin_emails,
+                fail_silently=True,
+            )
+        except Exception:
+            pass
+
+
+def _get_firebase_app():
+    if not django_settings.FIREBASE_SERVICE_ACCOUNT_KEY_JSON:
+        return None
+
+    try:
+        return firebase_admin.get_app()
+    except ValueError:
+        try:
+            service_account = json.loads(django_settings.FIREBASE_SERVICE_ACCOUNT_KEY_JSON)
+        except json.JSONDecodeError:
+            logger.exception("Invalid FIREBASE_SERVICE_ACCOUNT_KEY_JSON")
+            return None
+        return firebase_admin.initialize_app(credentials.Certificate(service_account))
 
 
 def _apply_filters(qs, params):
@@ -363,6 +409,65 @@ def session_login(request):
 
 
 @api_view(["POST"])
+@permission_classes([AllowAny])
+def firebase_session_auth(request):
+    id_token = request.data.get("idToken", "")
+
+    firebase_app = _get_firebase_app()
+    if not firebase_app:
+        return Response({"detail": "Firebase sign-in is not configured."}, status=503)
+    if not isinstance(id_token, str) or not id_token.strip():
+        return Response({"detail": "Firebase ID token required."}, status=400)
+
+    try:
+        payload = firebase_auth.verify_id_token(id_token, app=firebase_app)
+    except Exception:
+        logger.exception("Firebase token verification failed")
+        return Response({"detail": "Invalid Firebase credential."}, status=400)
+
+    email = str(payload.get("email", "")).strip().lower()
+    email_verified = bool(payload.get("email_verified"))
+    full_name = str(payload.get("name", "")).strip()
+
+    if not email or not email_verified:
+        return Response({"detail": "Firebase account email is not verified."}, status=400)
+
+    existing_user = User.objects.filter(email=email).first()
+    if existing_user:
+        profile = getattr(existing_user, "profile", None)
+        if profile:
+            if profile.approval_status == UserProfile.PENDING:
+                return Response({"detail": "Your account is pending admin approval."}, status=403)
+            if profile.approval_status == UserProfile.REJECTED:
+                return Response({"detail": "Your account request was not approved."}, status=403)
+
+        login(request, existing_user)
+        return Response({
+            "detail": "Logged in",
+            "username": existing_user.username,
+            "is_staff": existing_user.is_staff,
+            "authenticated": True,
+            "mode": "login",
+        })
+
+    username = _generate_username(email, full_name)
+    user = User.objects.create_user(username=username, email=email, password=None, is_active=True)
+    user.set_unusable_password()
+    user.save(update_fields=["password"])
+    UserProfile.objects.create(user=user, approval_status=UserProfile.PENDING)
+
+    logger.info("FIREBASE_SIGNUP_REQUEST user=%s email=%s", username, email)
+    _notify_admins_about_signup(username, email)
+
+    return Response({
+        "detail": "Account created. Awaiting admin approval.",
+        "username": username,
+        "authenticated": False,
+        "mode": "signup_pending",
+    }, status=201)
+
+
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def session_logout(request):
     logout(request)
@@ -564,98 +669,6 @@ def admin_import_excel(request):
         return Response({"detail": "Import failed. Check server logs."}, status=500)
     finally:
         os.unlink(tmp_path)
-
-
-# ── SIGNUP / EMAIL OTP ────────────────────────────────────────────────────────
-
-
-@api_view(["POST"])
-@permission_classes([AllowAny])
-def request_otp(request):
-    email = request.data.get("email", "").strip().lower()
-    if not email or "@" not in email or len(email) > 254:
-        return Response({"detail": "Valid email required."}, status=400)
-    if User.objects.filter(email=email).exists():
-        return Response({"detail": "An account with this email already exists."}, status=400)
-
-    EmailOTP.objects.filter(email=email, is_used=False).delete()
-    otp = f"{random.randint(0, 999999):06d}"
-    EmailOTP.objects.create(email=email, otp=otp)
-
-    try:
-        _send_email(
-            subject="Your IICCI verification code",
-            message=f"Your one-time code is: {otp}\n\nThis code expires in 10 minutes.\nDo not share it with anyone.",
-            recipient_list=[email],
-            fail_silently=False,
-        )
-    except Exception:
-        logger.exception("Failed to send OTP to %s", email)
-        return Response({"detail": "Failed to send email. Try again later."}, status=500)
-
-    return Response({"detail": "OTP sent to your email."})
-
-
-@api_view(["POST"])
-@permission_classes([AllowAny])
-def verify_otp(request):
-    email = request.data.get("email", "").strip().lower()
-    otp = request.data.get("otp", "").strip()
-
-    if not email or not otp:
-        return Response({"detail": "Email and OTP required."}, status=400)
-
-    record = EmailOTP.objects.filter(email=email, otp=otp, is_used=False).order_by("-created_at").first()
-    if not record:
-        return Response({"detail": "Invalid OTP."}, status=400)
-    if record.is_expired():
-        return Response({"detail": "OTP expired. Request a new one."}, status=400)
-
-    record.is_used = True
-    record.save()
-    request.session["verified_email"] = email
-
-    return Response({"detail": "Email verified."})
-
-
-@api_view(["POST"])
-@permission_classes([AllowAny])
-def signup(request):
-    email = request.session.get("verified_email")
-    if not email:
-        return Response({"detail": "Email not verified. Complete OTP step first."}, status=400)
-
-    username = request.data.get("username", "").strip()
-    password = request.data.get("password", "")
-
-    if not username or len(username) > 150:
-        return Response({"detail": "Valid username required."}, status=400)
-    if len(password) < 8:
-        return Response({"detail": "Password must be at least 8 characters."}, status=400)
-    if User.objects.filter(username=username).exists():
-        return Response({"detail": "Username already taken."}, status=400)
-    if User.objects.filter(email=email).exists():
-        return Response({"detail": "An account with this email already exists."}, status=400)
-
-    user = User.objects.create_user(username=username, password=password, email=email, is_active=True)
-    UserProfile.objects.create(user=user, approval_status=UserProfile.PENDING)
-    del request.session["verified_email"]
-
-    logger.info("SIGNUP_REQUEST user=%s email=%s", username, email)
-
-    admin_emails = list(User.objects.filter(is_staff=True).exclude(email="").values_list("email", flat=True))
-    if admin_emails:
-        try:
-            _send_email(
-                subject=f"New signup request: {username}",
-                message=f"User '{username}' ({email}) has requested access.\n\nLog in to approve or reject: https://iicci.up.railway.app/admin",
-                recipient_list=admin_emails,
-                fail_silently=True,
-            )
-        except Exception:
-            pass
-
-    return Response({"detail": "Account created. Awaiting admin approval."}, status=201)
 
 
 # ── ADMIN: APPROVE / REJECT ───────────────────────────────────────────────────

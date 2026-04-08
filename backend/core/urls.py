@@ -1,7 +1,6 @@
 from django.urls import path
 from .views import (
-    csrf, session_login, session_logout, me,
-    request_otp, verify_otp, signup,
+    csrf, session_login, session_logout, me, firebase_session_auth,
     stats_summary, stats_yearwise, stats_sector_wise,
     stats_top_products, filter_options,
     trade_table,
@@ -14,12 +13,9 @@ urlpatterns = [
     # auth
     path("auth/csrf/", csrf),
     path("auth/login/", session_login),
+    path("auth/firebase/", firebase_session_auth),
     path("auth/logout/", session_logout),
     path("auth/me/", me),
-    # signup
-    path("auth/request-otp/", request_otp),
-    path("auth/verify-otp/", verify_otp),
-    path("auth/signup/", signup),
     # public stats
     path("stats/summary/", stats_summary),
     path("stats/yearwise/", stats_yearwise),

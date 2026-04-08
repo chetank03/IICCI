@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { fetchCsrfToken } from "../api/auth";
+import FirebaseGoogleButton from "../components/auth/FirebaseGoogleButton";
 import "./LoginPage.css";
 
 export default function LoginPage() {
@@ -9,7 +10,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const { login, user } = useAuth();
+  const { login, loginWithFirebase, user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -34,6 +35,23 @@ export default function LoginPage() {
     }
   };
 
+  const handleFirebaseLogin = async (idToken) => {
+    setError("");
+    setSubmitting(true);
+    try {
+      const data = await loginWithFirebase(idToken);
+      if (data.authenticated) {
+        navigate("/", { replace: true });
+      } else {
+        setError(data.detail || "Your account is pending admin approval.");
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="login-page">
       <form className="login-card" onSubmit={handleSubmit}>
@@ -41,6 +59,17 @@ export default function LoginPage() {
         <p className="login-subtitle">Sign in to continue</p>
 
         {error && <div className="login-error">{error}</div>}
+
+        <div className="firebase-auth-section">
+          <FirebaseGoogleButton
+            label="Continue with Google"
+            onSuccess={handleFirebaseLogin}
+            onError={setError}
+          />
+          <p className="firebase-auth-hint">Use your approved Google account to sign in.</p>
+        </div>
+
+        <div className="auth-divider"><span>or continue with username</span></div>
 
         <label htmlFor="username">Username</label>
         <input
@@ -67,7 +96,7 @@ export default function LoginPage() {
         </button>
 
         <p className="signup-link">
-          Don't have an account? <Link to="/signup">Sign up</Link>
+          Need access? <Link to="/signup">Request an account with Google</Link>
         </p>
       </form>
     </div>

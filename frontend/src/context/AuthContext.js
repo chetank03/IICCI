@@ -1,5 +1,11 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { fetchCurrentUser, login as apiLogin, logout as apiLogout } from "../api/auth";
+import {
+  fetchCurrentUser,
+  login as apiLogin,
+  logout as apiLogout,
+  firebaseAuth as apiFirebaseAuth,
+} from "../api/auth";
+import { signOutFromFirebase } from "../lib/firebaseAuth";
 
 const AuthContext = createContext(null);
 
@@ -24,13 +30,22 @@ export function AuthProvider({ children }) {
     return data;
   };
 
+  const loginWithFirebase = async (idToken) => {
+    const data = await apiFirebaseAuth(idToken);
+    if (data.authenticated) {
+      setUser({ authenticated: true, ...data });
+    }
+    return data;
+  };
+
   const logout = async () => {
     await apiLogout();
+    await signOutFromFirebase();
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, loginWithFirebase, logout }}>
       {children}
     </AuthContext.Provider>
   );
