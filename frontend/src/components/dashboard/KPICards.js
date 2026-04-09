@@ -8,6 +8,20 @@ function yoy(current, prev, prevSummary, activeYear) {
 }
 
 export default function KPICards({ summary, prevSummary, productCount, activeYear }) {
+  if (summary === undefined) {
+    return (
+      <div className="kpi-row">
+        {Array.from({ length: 4 }).map((_, idx) => (
+          <div key={idx} className="kpi-card kpi-card--skeleton">
+            <div className="skeleton skeleton--label" />
+            <div className="skeleton skeleton--value" />
+            <div className="skeleton skeleton--sub" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   if (!summary) return null;
 
   const cards = [

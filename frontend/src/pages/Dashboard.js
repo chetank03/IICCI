@@ -130,7 +130,7 @@ export default function Dashboard() {
       {/* KPI Cards */}
       {!chartError && (
         <KPICards
-          summary={summary}
+          summary={loading && !summary ? undefined : summary}
           prevSummary={prevSummary}
           productCount={topProducts.length}
           activeYear={filters.year}

@@ -11,6 +11,15 @@ import {
   INDIA_TO_ITALY_LABEL,
 } from "../../constants/tradeFlows";
 
+function ChartSkeleton({ tall = false }) {
+  return (
+    <div className={`chart-skeleton${tall ? " chart-skeleton--tall" : ""}`}>
+      <div className="skeleton skeleton--chart-head" />
+      <div className="skeleton skeleton--chart-body" />
+    </div>
+  );
+}
+
 export default function ChartsSection({ yearwise, sectorWise, topProducts, loading, country }) {
   const showItalyToIndia = country !== COUNTRY_FILTER_VALUES.italyImportsFromIndia;
   const showIndiaToItaly = country !== COUNTRY_FILTER_VALUES.indiaImportsFromItaly;
@@ -47,7 +56,9 @@ export default function ChartsSection({ yearwise, sectorWise, topProducts, loadi
             <p className="chart-subtitle">Bilateral trade flows between Italy and India</p>
           </div>
         </div>
-        {yearwise.length === 0 && !loading ? (
+        {loading ? (
+          <ChartSkeleton tall />
+        ) : yearwise.length === 0 ? (
           <div className="chart-empty">No data available for the selected filters</div>
         ) : (
           <ResponsiveContainer width="100%" height={340}>
@@ -78,7 +89,9 @@ export default function ChartsSection({ yearwise, sectorWise, topProducts, loadi
               <p className="chart-subtitle">Total trade value progression over time</p>
             </div>
           </div>
-          {yearwise.length === 0 && !loading ? (
+          {loading ? (
+            <ChartSkeleton />
+          ) : yearwise.length === 0 ? (
             <div className="chart-empty">No data available for the selected filters</div>
           ) : (
             <ResponsiveContainer width="100%" height={280}>
@@ -110,7 +123,9 @@ export default function ChartsSection({ yearwise, sectorWise, topProducts, loadi
               <p className="chart-subtitle">By trade value — Italy ↔ India</p>
             </div>
           </div>
-          {topProducts.length === 0 && !loading ? (
+          {loading ? (
+            <ChartSkeleton tall />
+          ) : topProducts.length === 0 ? (
             <div className="chart-empty">No data available for the selected filters</div>
           ) : (
             <ResponsiveContainer width="100%" height={380}>
@@ -169,7 +184,9 @@ export default function ChartsSection({ yearwise, sectorWise, topProducts, loadi
             <p className="chart-subtitle">Sector-wise breakdown of bilateral trade</p>
           </div>
         </div>
-        {sectorWise.length === 0 && !loading ? (
+        {loading ? (
+          <ChartSkeleton tall />
+        ) : sectorWise.length === 0 ? (
           <div className="chart-empty">No data available for the selected filters</div>
         ) : (
           <ResponsiveContainer width="100%" height={Math.max(300, sectorWise.length * 45)}>
