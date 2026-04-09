@@ -104,9 +104,19 @@ export default function AdminPage() {
     <div className="admin-page">
       <Toast toast={toast} onDismiss={dismissToast} />
 
-      <div className="admin-header">
-        <h1>Admin Panel</h1>
-        <p>Manage users and monitor platform data</p>
+      <div className="admin-hero">
+        <div className="admin-header">
+          <span className="admin-kicker">Operations Console</span>
+          <h1>Admin Panel</h1>
+          <p>Review access requests, manage users, and control the trade dataset from one place.</p>
+        </div>
+        <div className="admin-hero-card">
+          <span className="admin-hero-card__label">Pending requests</span>
+          <span className="admin-hero-card__value">{pendingUsers.length}</span>
+          <span className="admin-hero-card__meta">
+            {pendingUsers.length === 0 ? "No approvals waiting" : "Needs review from admin"}
+          </span>
+        </div>
       </div>
 
       {/* Stats cards */}
@@ -162,35 +172,51 @@ export default function AdminPage() {
       )}
 
       {adminTab === "pending" && (
-        <div className="pending-table">
+        <div className="admin-section">
+          <div className="section-header section-header--stacked">
+            <div>
+              <h2>Pending Access Requests</h2>
+              <p className="section-subtitle">
+                Approve trusted Google signups to grant dashboard access, or reject requests that should remain blocked.
+              </p>
+            </div>
+          </div>
           {loading ? (
-            <p style={{ padding: "1rem", color: "#64748b" }}>Loading...</p>
+            <p className="loading-text">Loading pending requests...</p>
           ) : pendingUsers.length === 0 ? (
-            <p style={{ padding: "1rem", color: "#64748b" }}>No pending requests.</p>
+            <div className="pending-empty">
+              <span className="pending-empty__icon">✓</span>
+              <h3>No pending requests</h3>
+              <p>New Google signup requests will appear here for review.</p>
+            </div>
           ) : (
-            <table className="users-table">
-              <thead>
-                <tr>
-                  <th>Username</th>
-                  <th>Email</th>
-                  <th>Requested</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pendingUsers.map(u => (
-                  <tr key={u.id}>
-                    <td>{u.username}</td>
-                    <td>{u.email}</td>
-                    <td>{new Date(u.date_joined).toLocaleDateString()}</td>
-                    <td>
-                      <button className="btn-approve" onClick={() => handleApprove(u)}>Approve</button>
-                      <button className="btn-danger" onClick={() => handleReject(u)} style={{ marginLeft: "0.5rem" }}>Reject</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="pending-grid">
+              {pendingUsers.map((u) => (
+                <div key={u.id} className="pending-card">
+                  <div className="pending-card__header">
+                    <div>
+                      <h3>{u.username}</h3>
+                      <p>{u.email || "No email provided"}</p>
+                    </div>
+                    <span className="badge amber">Pending</span>
+                  </div>
+                  <div className="pending-card__meta">
+                    <div>
+                      <span className="pending-card__meta-label">Requested</span>
+                      <span>{new Date(u.date_joined).toLocaleString()}</span>
+                    </div>
+                    <div>
+                      <span className="pending-card__meta-label">Account type</span>
+                      <span>Google signup</span>
+                    </div>
+                  </div>
+                  <div className="pending-card__actions">
+                    <button className="btn-approve" onClick={() => handleApprove(u)}>Approve Access</button>
+                    <button className="btn-sm btn-danger" onClick={() => handleReject(u)}>Reject</button>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       )}

@@ -8,6 +8,11 @@ export default function UsersTable({ users, currentUserId, loading, onEdit, onDe
 
       {loading ? (
         <p className="loading-text">Loading...</p>
+      ) : users.length === 0 ? (
+        <div className="table-empty-state">
+          <h3>No users to show</h3>
+          <p>Approved and manually created users will appear here.</p>
+        </div>
       ) : (
         <div className="table-wrap">
           <table className="admin-table">

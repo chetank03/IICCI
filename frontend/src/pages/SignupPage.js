@@ -45,12 +45,27 @@ export default function SignupPage() {
         {success && (
           <div className="login-success-card">
             <div className="login-success">
+              <span className="approval-pill">Pending Admin Approval</span>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="48" height="48">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                 <polyline points="22 4 12 14.01 9 11.01" />
               </svg>
               <h2>Request Submitted</h2>
               <p>{success}</p>
+            </div>
+            <div className="approval-steps">
+              <div className="approval-step">
+                <span className="approval-step__num">1</span>
+                <span>We created your access request from your Google account.</span>
+              </div>
+              <div className="approval-step">
+                <span className="approval-step__num">2</span>
+                <span>An admin will review the request and decide whether to grant access.</span>
+              </div>
+              <div className="approval-step">
+                <span className="approval-step__num">3</span>
+                <span>After approval, use the same Google account on the sign-in page.</span>
+              </div>
             </div>
           </div>
         )}
