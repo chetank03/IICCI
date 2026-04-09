@@ -1,10 +1,5 @@
 import { useState, useCallback } from "react";
-import {
-  fetchSummary,
-  fetchYearwise,
-  fetchSectorWise,
-  fetchTopProducts,
-} from "../api/stats";
+import { fetchDashboard } from "../api/stats";
 
 export function useTradeData() {
   const [summary,     setSummary]     = useState(null);
@@ -19,23 +14,12 @@ export function useTradeData() {
     setLoading(true);
     setChartError(null);
     try {
-      const prevYearFilters = filters.year
-        ? { ...filters, year: String(parseInt(filters.year) - 1) }
-        : null;
-
-      const [sum, yw, sw, tp, prev] = await Promise.all([
-        fetchSummary(filters),
-        fetchYearwise(filters),
-        fetchSectorWise(filters),
-        fetchTopProducts(filters),
-        prevYearFilters ? fetchSummary(prevYearFilters) : Promise.resolve(null),
-      ]);
-
-      setSummary(sum);
-      setPrevSummary(prev);
-      setYearwise(yw);
-      setSectorWise(sw);
-      setTopProducts(tp);
+      const data = await fetchDashboard(filters);
+      setSummary(data.summary || null);
+      setPrevSummary(data.prev_summary || null);
+      setYearwise(data.yearwise || []);
+      setSectorWise(data.sector_wise || []);
+      setTopProducts(data.top_products || []);
     } catch (err) {
       setChartError("Failed to load data. Check your connection and try again.");
     } finally {

@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     csrf, session_login, session_logout, me, firebase_session_auth,
-    stats_summary, stats_yearwise, stats_sector_wise,
+    stats_summary, stats_yearwise, stats_sector_wise, stats_dashboard,
     stats_top_products, filter_options,
     trade_table,
     admin_list_users, admin_create_user, admin_update_user,
@@ -18,6 +18,7 @@ urlpatterns = [
     path("auth/me/", me),
     # public stats
     path("stats/summary/", stats_summary),
+    path("stats/dashboard/", stats_dashboard),
     path("stats/yearwise/", stats_yearwise),
     path("stats/sector-wise/", stats_sector_wise),
     path("stats/top-products/", stats_top_products),

@@ -37,7 +37,9 @@ export default function Dashboard() {
     useFilters({
       onChange: (f) => {
         loadData(f);
-        loadTable(f, 1);
+        if (activeTab === "data") {
+          loadTable(f, 1);
+        }
       },
     });
 

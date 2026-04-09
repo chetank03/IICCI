@@ -167,15 +167,9 @@ def _country_totals(country, italy_to_india, india_to_italy):
     return italy_to_india, india_to_italy
 
 
-# ── PUBLIC STATS ──────────────────────────────────────────────────────────────
-
-
-@api_view(["GET"])
-@permission_classes([AllowAny])
-def stats_summary(request):
-    """KPI cards: bilateral trade totals. Uses HS2-level rows to avoid double-counting."""
+def _summary_payload(filters):
     qs = TradeRecord.objects.filter(hs4="")
-    qs = _apply_filters(qs, request.query_params)
+    qs = _apply_filters(qs, filters)
 
     totals = qs.aggregate(
         italy_to_india=Coalesce(Sum("italy_to_india_value"), Decimal("0")),
@@ -183,27 +177,24 @@ def stats_summary(request):
     )
 
     italy_to_india, india_to_italy = _country_totals(
-        request.query_params.get("country"),
+        filters.get("country"),
         totals["italy_to_india"],
         totals["india_to_italy"],
     )
     bilateral = italy_to_india + india_to_italy
 
-    return Response({
-        "bilateral_trade_value":    float(bilateral),
+    return {
+        "bilateral_trade_value": float(bilateral),
         "india_imports_from_italy": float(italy_to_india),
         "italy_imports_from_india": float(india_to_italy),
-    })
+    }
 
 
-@api_view(["GET"])
-@permission_classes([AllowAny])
-def stats_yearwise(request):
-    """Year-wise bar chart data. Uses HS2-level rows."""
+def _yearwise_payload(filters):
     qs = TradeRecord.objects.filter(hs4="")
-    qs = _apply_filters(qs, request.query_params)
+    qs = _apply_filters(qs, filters)
 
-    country = request.query_params.get("country")
+    country = filters.get("country")
     rows = (
         qs.values("year")
         .annotate(
@@ -213,26 +204,21 @@ def stats_yearwise(request):
         .order_by("year")
     )
 
-    return Response({
-        "rows": [
-            {
-                "year":          r["year"],
-                "italy_to_india": float(_country_totals(country, r["italy_to_india"], r["india_to_italy"])[0]),
-                "india_to_italy": float(_country_totals(country, r["italy_to_india"], r["india_to_italy"])[1]),
-            }
-            for r in rows
-        ]
-    })
+    return [
+        {
+            "year": r["year"],
+            "italy_to_india": float(_country_totals(country, r["italy_to_india"], r["india_to_italy"])[0]),
+            "india_to_italy": float(_country_totals(country, r["italy_to_india"], r["india_to_italy"])[1]),
+        }
+        for r in rows
+    ]
 
 
-@api_view(["GET"])
-@permission_classes([AllowAny])
-def stats_sector_wise(request):
-    """Sector-wise breakdown. Uses HS2-level rows."""
+def _sector_wise_payload(filters):
     qs = TradeRecord.objects.filter(hs4="").exclude(sector="")
-    qs = _apply_filters(qs, request.query_params)
+    qs = _apply_filters(qs, filters)
 
-    country = request.query_params.get("country")
+    country = filters.get("country")
     rows = (
         qs.values("sector")
         .annotate(
@@ -242,25 +228,20 @@ def stats_sector_wise(request):
         .order_by("-italy_to_india")
     )
 
-    return Response({
-        "rows": [
-            {
-                "sector":        r["sector"],
-                "italy_to_india": float(_country_totals(country, r["italy_to_india"], r["india_to_italy"])[0]),
-                "india_to_italy": float(_country_totals(country, r["italy_to_india"], r["india_to_italy"])[1]),
-            }
-            for r in rows
-        ]
-    })
+    return [
+        {
+            "sector": r["sector"],
+            "italy_to_india": float(_country_totals(country, r["italy_to_india"], r["india_to_italy"])[0]),
+            "india_to_italy": float(_country_totals(country, r["italy_to_india"], r["india_to_italy"])[1]),
+        }
+        for r in rows
+    ]
 
 
-@api_view(["GET"])
-@permission_classes([AllowAny])
-def stats_top_products(request):
-    """Top 10 HS4 product categories by total trade value."""
+def _top_products_payload(filters):
     qs = TradeRecord.objects.exclude(hs4="")
-    qs = _apply_filters(qs, request.query_params)
-    country = request.query_params.get("country")
+    qs = _apply_filters(qs, filters)
+    country = filters.get("country")
 
     total_expr = F("italy_to_india") + F("india_to_italy")
     if country == ITALY_IMPORTS_FROM_INDIA:
@@ -279,17 +260,67 @@ def stats_top_products(request):
         .order_by("-total")[:10]
     )
 
+    return [
+        {
+            "hs4": r["hs4"],
+            "description": r["description"],
+            "italy_to_india": float(_country_totals(country, r["italy_to_india"], r["india_to_italy"])[0]),
+            "india_to_italy": float(_country_totals(country, r["italy_to_india"], r["india_to_italy"])[1]),
+            "total": float(r["total"]),
+        }
+        for r in rows
+    ]
+
+
+# ── PUBLIC STATS ──────────────────────────────────────────────────────────────
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def stats_summary(request):
+    """KPI cards: bilateral trade totals. Uses HS2-level rows to avoid double-counting."""
+    return Response(_summary_payload(request.query_params))
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def stats_yearwise(request):
+    """Year-wise bar chart data. Uses HS2-level rows."""
+    return Response({"rows": _yearwise_payload(request.query_params)})
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def stats_sector_wise(request):
+    """Sector-wise breakdown. Uses HS2-level rows."""
+    return Response({"rows": _sector_wise_payload(request.query_params)})
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def stats_top_products(request):
+    """Top 10 HS4 product categories by total trade value."""
+    return Response({"rows": _top_products_payload(request.query_params)})
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def stats_dashboard(request):
+    filters = request.query_params
+    prev_year_filters = None
+    if filters.get("year"):
+        try:
+            prev_year_filters = filters.copy()
+            prev_year_filters["year"] = str(int(filters["year"]) - 1)
+        except (ValueError, TypeError):
+            prev_year_filters = None
+
     return Response({
-        "rows": [
-            {
-                "hs4":           r["hs4"],
-                "description":   r["description"],
-                "italy_to_india": float(_country_totals(country, r["italy_to_india"], r["india_to_italy"])[0]),
-                "india_to_italy": float(_country_totals(country, r["italy_to_india"], r["india_to_italy"])[1]),
-                "total":          float(r["total"]),
-            }
-            for r in rows
-        ]
+        "summary": _summary_payload(filters),
+        "prev_summary": _summary_payload(prev_year_filters) if prev_year_filters else None,
+        "yearwise": _yearwise_payload(filters),
+        "sector_wise": _sector_wise_payload(filters),
+        "top_products": _top_products_payload(filters),
     })
 
 

@@ -23,6 +23,12 @@ export async function fetchSummary(filters = {}) {
   return res.json();
 }
 
+export async function fetchDashboard(filters = {}) {
+  const res = await fetch(`${API_BASE}/stats/dashboard/${qs(filters)}`);
+  await checkOk(res);
+  return res.json();
+}
+
 export async function fetchYearwise(filters = {}) {
   const res = await fetch(`${API_BASE}/stats/yearwise/${qs(filters)}`);
   await checkOk(res);
