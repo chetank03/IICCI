@@ -468,7 +468,7 @@ def firebase_session_auth(request):
 
 
 @api_view(["POST"])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def session_logout(request):
     logout(request)
     return Response({"detail": "Logged out"})

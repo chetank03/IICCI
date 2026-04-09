@@ -39,9 +39,12 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
-    await apiLogout();
-    await signOutFromFirebase();
-    setUser(null);
+    try {
+      await apiLogout();
+    } finally {
+      await signOutFromFirebase();
+      setUser(null);
+    }
   };
 
   return (
