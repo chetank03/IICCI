@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import json
 import logging
 import re
@@ -9,6 +10,7 @@ import urllib.error
 from decimal import Decimal
 
 from django.conf import settings as django_settings
+from django.core.cache import cache
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.db import transaction
@@ -167,6 +169,15 @@ def _country_totals(country, italy_to_india, india_to_italy):
     return italy_to_india, india_to_italy
 
 
+def _dashboard_cache_key(query_params):
+    normalized = sorted(
+        (key, tuple(query_params.getlist(key)))
+        for key in query_params.keys()
+    )
+    digest = hashlib.sha256(json.dumps(normalized, sort_keys=True).encode()).hexdigest()
+    return f"stats_dashboard:{digest}"
+
+
 def _summary_payload(filters):
     qs = TradeRecord.objects.filter(hs4="")
     qs = _apply_filters(qs, filters)
@@ -307,6 +318,11 @@ def stats_top_products(request):
 @permission_classes([AllowAny])
 def stats_dashboard(request):
     filters = request.query_params
+    cache_key = _dashboard_cache_key(filters)
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return Response(cached)
+
     prev_year_filters = None
     if filters.get("year"):
         try:
@@ -315,13 +331,15 @@ def stats_dashboard(request):
         except (ValueError, TypeError):
             prev_year_filters = None
 
-    return Response({
+    payload = {
         "summary": _summary_payload(filters),
         "prev_summary": _summary_payload(prev_year_filters) if prev_year_filters else None,
         "yearwise": _yearwise_payload(filters),
         "sector_wise": _sector_wise_payload(filters),
         "top_products": _top_products_payload(filters),
-    })
+    }
+    cache.set(cache_key, payload, django_settings.DASHBOARD_CACHE_TTL_SECONDS)
+    return Response(payload)
 
 
 @api_view(["GET"])
