@@ -526,6 +526,32 @@
   color: #64748b;
 }
 
+.import-mode-switch {
+  display: inline-flex;
+  gap: 0.35rem;
+  padding: 0.25rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  margin: 0 0 1rem;
+}
+
+.import-mode-btn {
+  border: none;
+  background: transparent;
+  color: #475569;
+  padding: 0.55rem 0.9rem;
+  border-radius: 9px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.import-mode-btn.active {
+  background: #0f172a;
+  color: #fff;
+}
+
 .import-desc {
   margin: 0 0 1rem;
   font-size: 0.875rem;

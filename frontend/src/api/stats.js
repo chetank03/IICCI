@@ -54,6 +54,12 @@ export async function fetchTopProducts(filters = {}) {
   return data.rows;
 }
 
+export function clearFilterOptionsCache() {
+  try {
+    window.localStorage.removeItem(FILTER_OPTIONS_CACHE_KEY);
+  } catch (_) {}
+}
+
 export async function fetchFilterOptions() {
   try {
     const raw = window.localStorage.getItem(FILTER_OPTIONS_CACHE_KEY);

@@ -5,6 +5,7 @@ export default function ImportSection({ totalRecords, onImport, importResult }) 
   const [importConfirm, setImportConfirm] = useState(false);
   const [importing,     setImporting]     = useState(false);
   const [localResult,   setLocalResult]   = useState(null);
+  const [importMode,    setImportMode]    = useState("replace");
 
   const result = localResult || importResult;
 
@@ -24,7 +25,7 @@ export default function ImportSection({ totalRecords, onImport, importResult }) 
     setImporting(true);
     setLocalResult(null);
     try {
-      await onImport(importFile);
+      await onImport(importFile, importMode);
       setImportFile(null);
     } finally {
       setImporting(false);
@@ -50,21 +51,45 @@ export default function ImportSection({ totalRecords, onImport, importResult }) 
           <div className="import-box">
             <p className="import-kicker">Dataset refresh</p>
             <p className="import-desc">
-              Upload an Excel file (`.xlsx` or `.xls`) containing the complete trade dataset, including historical and new records.
-              The import replaces the existing dataset in one controlled action.
+              Upload an Excel file (`.xlsx` or `.xls`) containing trade records.
+              Choose whether to replace the full dataset or append new rows to the existing records.
             </p>
+            <div className="import-mode-switch">
+              <button
+                type="button"
+                className={`import-mode-btn${importMode === "replace" ? " active" : ""}`}
+                onClick={() => setImportMode("replace")}
+              >
+                Replace Dataset
+              </button>
+              <button
+                type="button"
+                className={`import-mode-btn${importMode === "append" ? " active" : ""}`}
+                onClick={() => setImportMode("append")}
+              >
+                Add Data
+              </button>
+            </div>
             <div className="import-notes">
               <div className="import-note">
                 <strong>Scope</strong>
-                <span>Existing trade records are fully replaced by the uploaded workbook.</span>
+                <span>
+                  {importMode === "replace"
+                    ? "Existing trade records are fully replaced by the uploaded workbook."
+                    : "Uploaded rows are appended to the existing trade records."}
+                </span>
               </div>
               <div className="import-note">
                 <strong>Limit</strong>
                 <span>Maximum allowed file size is 50MB.</span>
               </div>
               <div className="import-note">
-                <strong>Recommendation</strong>
-                <span>Use a validated full export instead of a partial or manually edited subset.</span>
+                <strong>{importMode === "replace" ? "Recommendation" : "Warning"}</strong>
+                <span>
+                  {importMode === "replace"
+                    ? "Use a validated full export instead of a partial or manually edited subset."
+                    : "Add Data does not de-duplicate rows. Use it only when the uploaded sheet contains genuinely new records."}
+                </span>
               </div>
             </div>
           </div>
@@ -92,7 +117,7 @@ export default function ImportSection({ totalRecords, onImport, importResult }) 
                 onClick={() => setImportConfirm(true)}
                 disabled={!importFile || importing}
               >
-                {importing ? "Importing..." : "Replace Dataset"}
+                {importing ? "Importing..." : importMode === "replace" ? "Replace Dataset" : "Add Data"}
               </button>
             </div>
             {result && (
@@ -109,12 +134,23 @@ export default function ImportSection({ totalRecords, onImport, importResult }) 
           <div className="modal confirm" onClick={(e) => e.stopPropagation()}>
             <h2>Confirm Import</h2>
             <p>
-              This will <strong>replace all {totalRecords?.toLocaleString()} existing trade records</strong> with
-              the data from <strong>{importFile?.name}</strong>. This cannot be undone.
+              {importMode === "replace" ? (
+                <>
+                  This will <strong>replace all {totalRecords?.toLocaleString()} existing trade records</strong> with
+                  the data from <strong>{importFile?.name}</strong>. This cannot be undone.
+                </>
+              ) : (
+                <>
+                  This will <strong>add the rows from {importFile?.name}</strong> to the current
+                  dataset of <strong>{totalRecords?.toLocaleString()} records</strong>. Existing rows are not removed.
+                </>
+              )}
             </p>
             <div className="modal-actions">
               <button className="btn-secondary" onClick={() => setImportConfirm(false)}>Cancel</button>
-              <button className="btn-danger-fill" onClick={handleConfirm}>Yes, Import</button>
+              <button className={importMode === "replace" ? "btn-danger-fill" : "btn-primary"} onClick={handleConfirm}>
+                {importMode === "replace" ? "Yes, Replace" : "Yes, Add Data"}
+              </button>
             </div>
           </div>
         </div>

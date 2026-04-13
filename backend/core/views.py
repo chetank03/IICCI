@@ -634,10 +634,13 @@ def admin_import_excel(request):
     import openpyxl
 
     file = request.FILES.get("file")
+    import_mode = str(request.data.get("mode", "replace")).strip().lower()
     if not file:
         return Response({"detail": "No file uploaded."}, status=400)
     if not file.name.endswith((".xlsx", ".xls")):
         return Response({"detail": "File must be .xlsx or .xls."}, status=400)
+    if import_mode not in {"replace", "append"}:
+        return Response({"detail": "Invalid import mode."}, status=400)
 
     suffix = ".xlsx" if file.name.endswith(".xlsx") else ".xls"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
@@ -698,16 +701,21 @@ def admin_import_excel(request):
         wb.close()
 
         with transaction.atomic():
-            deleted, _ = TradeRecord.objects.all().delete()
+            deleted = 0
+            if import_mode == "replace":
+                deleted, _ = TradeRecord.objects.all().delete()
             TradeRecord.objects.bulk_create(records, batch_size=500)
 
+        cache.clear()
+
         logger.info(
-            "DATA_IMPORT by=%s imported=%d deleted=%d skipped=%d file=%s",
-            request.user.username, len(records), deleted, skipped, file.name,
+            "DATA_IMPORT by=%s mode=%s imported=%d deleted=%d skipped=%d file=%s",
+            request.user.username, import_mode, len(records), deleted, skipped, file.name,
         )
 
         return Response({
             "detail":   "Import successful.",
+            "mode":     import_mode,
             "imported": len(records),
             "deleted":  deleted,
             "skipped":  skipped,

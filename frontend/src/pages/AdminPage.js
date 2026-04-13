@@ -4,6 +4,7 @@ import { fetchCsrfToken } from "../api/auth";
 import { getCookie } from "../api/csrf";
 import { API_BASE } from "../api/config";
 import { deleteUser, approveUser, rejectUser } from "../api/admin";
+import { clearFilterOptionsCache } from "../api/stats";
 
 import { useAdminData } from "../hooks/useAdminData";
 import { useToast } from "../hooks/useToast";
@@ -32,10 +33,11 @@ export default function AdminPage() {
     loadData();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleImport = async (file) => {
+  const handleImport = async (file, mode) => {
     setImportResult(null);
     const formData  = new FormData();
     formData.append("file", file);
+    formData.append("mode", mode);
     const csrfToken = getCookie("csrftoken");
 
     const res  = await fetch(`${API_BASE}/admin/import-excel/`, {
@@ -47,10 +49,15 @@ export default function AdminPage() {
     const data = await res.json();
 
     if (res.ok) {
-      const msg = `Imported ${data.imported} records (${data.deleted} replaced, ${data.skipped} skipped).`;
+      const msg = data.mode === "append"
+        ? `Added ${data.imported} records (${data.skipped} skipped).`
+        : `Imported ${data.imported} records (${data.deleted} replaced, ${data.skipped} skipped).`;
       setImportResult({ success: true, message: msg });
+      clearFilterOptionsCache();
       loadData();
-      showToast(`Successfully imported ${data.imported} trade records.`);
+      showToast(data.mode === "append"
+        ? `Successfully added ${data.imported} trade records.`
+        : `Successfully imported ${data.imported} trade records.`);
     } else {
       const msg = data.detail || "Import failed.";
       setImportResult({ success: false, message: msg });
