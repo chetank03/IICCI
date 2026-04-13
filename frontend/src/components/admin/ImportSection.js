@@ -5,7 +5,7 @@ export default function ImportSection({ totalRecords, onImport, importResult }) 
   const [importConfirm, setImportConfirm] = useState(false);
   const [importing,     setImporting]     = useState(false);
   const [localResult,   setLocalResult]   = useState(null);
-  const [importMode,    setImportMode]    = useState("replace");
+  const [importMode,    setImportMode]    = useState("append");
 
   const result = localResult || importResult;
 
