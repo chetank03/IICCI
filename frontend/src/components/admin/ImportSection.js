@@ -57,7 +57,7 @@ export default function ImportSection({ totalRecords, onImport, importResult }) 
             <div className="import-mode-switch">
               <button
                 type="button"
-                className={`import-mode-btn${importMode === "replace" ? " active" : ""}`}
+                className={`import-mode-btn import-mode-btn--replace${importMode === "replace" ? " active" : ""}`}
                 onClick={() => setImportMode("replace")}
               >
                 Replace Dataset
@@ -87,10 +87,15 @@ export default function ImportSection({ totalRecords, onImport, importResult }) 
                 <strong>{importMode === "replace" ? "Recommendation" : "Warning"}</strong>
                 <span>
                   {importMode === "replace"
-                    ? "Use a validated full export instead of a partial or manually edited subset."
+                    ? "Replace Dataset deletes the current database before importing the new file. Use it only for a validated full backup export."
                     : "Add Data does not de-duplicate rows. Use it only when the uploaded sheet contains genuinely new records."}
                 </span>
               </div>
+              {importMode === "replace" && (
+                <div className="import-warning-banner">
+                  Warning: Replace Dataset removes all existing records first. Keep a verified backup file before continuing.
+                </div>
+              )}
             </div>
           </div>
 
@@ -137,7 +142,8 @@ export default function ImportSection({ totalRecords, onImport, importResult }) 
               {importMode === "replace" ? (
                 <>
                   This will <strong>replace all {totalRecords?.toLocaleString()} existing trade records</strong> with
-                  the data from <strong>{importFile?.name}</strong>. This cannot be undone.
+                  the data from <strong>{importFile?.name}</strong>. This cannot be undone. Make sure the uploaded file is your
+                  verified backup or full master export.
                 </>
               ) : (
                 <>
