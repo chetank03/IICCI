@@ -1,4 +1,5 @@
 import { fetchTradeTable } from "../../api/stats";
+import { fmtTableValue } from "../../constants/chartColors";
 import { ITALY_TO_INDIA_LABEL, INDIA_TO_ITALY_LABEL } from "../../constants/tradeFlows";
 
 export default function TradeDataTable({
@@ -28,8 +29,8 @@ export default function TradeDataTable({
       "Sector",
       "Product Category",
       "Specific Products",
-      `${ITALY_TO_INDIA_LABEL} (M USD)`,
-      `${INDIA_TO_ITALY_LABEL} (M USD)`,
+      `${ITALY_TO_INDIA_LABEL} (M EUR)`,
+      `${INDIA_TO_ITALY_LABEL} (M EUR)`,
     ];
     const lines  = [header.join(",")];
     for (const r of items) {
@@ -81,8 +82,8 @@ export default function TradeDataTable({
               <th>Product Category</th>
               <th>Sector</th>
               <th>Specific Products</th>
-              <th>{ITALY_TO_INDIA_LABEL} (M USD)</th>
-              <th>{INDIA_TO_ITALY_LABEL} (M USD)</th>
+              <th>{ITALY_TO_INDIA_LABEL} (M EUR)</th>
+              <th>{INDIA_TO_ITALY_LABEL} (M EUR)</th>
               <th>Action</th>
             </tr>
           </thead>
@@ -101,8 +102,8 @@ export default function TradeDataTable({
                   <td className="td-macro">{r.macrosector || <span className="td-dash">—</span>}</td>
                   <td>{r.sector || <span className="td-dash">—</span>}</td>
                   <td>{r.keyword || <span className="td-dash">—</span>}</td>
-                  <td className="td-value">{parseFloat(r.italy_to_india_value).toFixed(2)}</td>
-                  <td className="td-value">{parseFloat(r.india_to_italy_value).toFixed(2)}</td>
+                  <td className="td-value">{fmtTableValue(r.italy_to_india_value)}</td>
+                  <td className="td-value">{fmtTableValue(r.india_to_italy_value)}</td>
                   <td>
                     <button className="details-btn" onClick={() => onRowClick(r)}>
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13">

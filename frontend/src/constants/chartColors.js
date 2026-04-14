@@ -5,10 +5,15 @@ export const COLORS = {
   blue:   "#3b82f6",
 };
 
+const toNumber = (value) => Number(value) || 0;
+
 export const fmtValue = (v) => {
-  if (v >= 1000) return `$${(v / 1000).toFixed(1)}B`;
-  if (v >= 1)    return `$${v.toFixed(0)}M`;
-  return `$${(v * 1000).toFixed(0)}K`;
+  const value = toNumber(v);
+  if (value >= 1000) return `€${(value / 1000).toFixed(1)}B`;
+  if (value >= 1)    return `€${value.toFixed(0)}M`;
+  return `€${(value * 1000).toFixed(0)}K`;
 };
 
-export const fmtTooltip = (v) => `$${v.toFixed(2)}M`;
+export const fmtTooltip = (v) => `€${toNumber(v).toFixed(2)}M`;
+
+export const fmtTableValue = (v) => `€${toNumber(v).toFixed(2)}M`;
