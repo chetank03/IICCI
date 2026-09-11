@@ -15,12 +15,15 @@ class TradeRecord(models.Model):
     brochure2 = models.CharField(max_length=255, blank=True, default="")  # IICCI Brochure 2
     keyword = models.CharField(max_length=255, blank=True, default="")   # IICCI Subsector (HS4) description
     macrosector = models.CharField(max_length=500, blank=True, default="")  # Macrosector (col H)
+    hs2_sector_desc = models.TextField(blank=True, default="")  # IICCI Sector (HS2) description (col I)
 
+    # NULL means the source workbook left the cell blank (no data reported).
+    # This is distinct from a reported value of 0.
     italy_to_india_value = models.DecimalField(
-        max_digits=20, decimal_places=2, default=0
+        max_digits=20, decimal_places=6, null=True, blank=True, default=None
     )
     india_to_italy_value = models.DecimalField(
-        max_digits=20, decimal_places=2, default=0
+        max_digits=20, decimal_places=6, null=True, blank=True, default=None
     )
 
     created_at = models.DateTimeField(auto_now_add=True)

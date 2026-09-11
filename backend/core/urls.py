@@ -3,7 +3,7 @@ from .views import (
     csrf, session_login, session_logout, me, firebase_session_auth,
     stats_summary, stats_yearwise, stats_sector_wise, stats_dashboard,
     stats_top_products, filter_options,
-    trade_table,
+    trade_table, export_excel, export_csv,
     admin_list_users, admin_create_user, admin_update_user,
     admin_delete_user, admin_stats, admin_import_excel,
     approve_user, reject_user,
@@ -25,6 +25,8 @@ urlpatterns = [
     path("stats/filters/", filter_options),
     # private table
     path("trade/table/", trade_table),
+    path("trade/export/xlsx/", export_excel),
+    path("trade/export/csv/", export_csv),
     # admin
     path("admin/stats/", admin_stats),
     path("admin/users/", admin_list_users),

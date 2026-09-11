@@ -1499,3 +1499,15 @@
     border-radius: 20px 20px 0 0;
   }
 }
+
+/* Export buttons sit together in the table toolbar. */
+.export-btn-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.csv-export-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

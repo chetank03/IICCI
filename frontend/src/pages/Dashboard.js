@@ -25,6 +25,7 @@ export default function Dashboard() {
   const [activeTab,       setActiveTab]        = useState("analytics");
   const [selectedRecord,  setSelectedRecord]   = useState(null);
   const [modalHs2Summary, setModalHs2Summary]  = useState(null);
+  const [exportError,     setExportError]      = useState("");
 
   const {
     summary, prevSummary, yearwise, sectorWise, topProducts,
@@ -119,6 +120,13 @@ export default function Dashboard() {
 
       {loading && <div className="loading-bar" />}
 
+      {exportError && (
+        <div className="chart-error-banner">
+          <span>{exportError}</span>
+          <button className="chart-error-retry" onClick={() => setExportError("")}>Dismiss</button>
+        </div>
+      )}
+
       {/* Error banner */}
       {chartError && (
         <div className="chart-error-banner">
@@ -176,6 +184,7 @@ export default function Dashboard() {
           filters={filters}
           onPageChange={(p) => loadTable(filters, p)}
           onRowClick={setSelectedRecord}
+          onExportError={setExportError}
         />
       )}
 

@@ -95,3 +95,29 @@ export async function fetchTradeTable(filters = {}, page = 1, pageSize = 25) {
   await checkOk(res);
   return res.json();
 }
+
+// Exports are built by the backend so a downloaded file has the exact column
+// layout the client uploads. Assembling them in the browser meant paginating
+// the table API and re-implementing the format, which silently drifted.
+export async function downloadExport(filters = {}, format = "xlsx") {
+  const entries = Object.entries(filters).filter(([, v]) => v !== "" && v !== undefined);
+  const queryStr = entries.length ? "?" + new URLSearchParams(entries) : "";
+  const res = await fetch(`${API_BASE}/trade/export/${format}/${queryStr}`, {
+    credentials: "include",
+  });
+  await checkOk(res);
+
+  const disposition = res.headers.get("Content-Disposition") || "";
+  const match = disposition.match(/filename="?([^"]+)"?/);
+  const filename = match ? match[1] : `iicci_trade_data.${format}`;
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}

@@ -8,14 +8,17 @@ obvious breakage: the hs4 convention that separates aggregate rows from product 
 the country filter, cache keying, pagination bounds, and admin authorisation.
 """
 
+import io
 from decimal import Decimal
 
 from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.test import TestCase
+import openpyxl
 from rest_framework.test import APIClient
 
 from .models import TradeRecord
+from .tradeformat import EXPORT_FIELDS, SOURCE_HEADERS, build_row, parse_row
 
 ITALY_IMPORTS_FROM_INDIA = "italy_imports_from_india"
 INDIA_IMPORTS_FROM_ITALY = "india_imports_from_italy"
@@ -246,3 +249,129 @@ class PublicEndpointTests(TestCase):
     def test_summary_on_empty_database_is_zero_not_null(self):
         r = self.client.get("/api/stats/summary/").json()
         self.assertEqual(r["bilateral_trade_value"], 0.0)
+
+
+class TradeFormatTests(TestCase):
+    """The client maintains their master data in one fixed workbook layout.
+
+    An exported file has to be re-importable without edits, so these tests pin
+    the layout and the two rules that are easy to break: blank is not zero, and
+    HS codes keep their leading zeros.
+    """
+
+    def test_headers_match_the_source_workbook(self):
+        self.assertEqual(len(SOURCE_HEADERS), 14)
+        self.assertEqual(SOURCE_HEADERS[0], "CY")
+        # The trailing space is in the client's own file. Keep it.
+        self.assertEqual(SOURCE_HEADERS[7], "Macrosector ")
+
+    def test_numeric_hs_codes_keep_leading_zeros(self):
+        """Excel stores "01" as text but "10" as a number.
+
+        Without padding, a numeric 1 imports as "1" and silently splits into a
+        second filter value alongside the text "01".
+        """
+        row = [2024, 1, "01 - Live animals", 101, "0101 - HORSES", "Agri&Food",
+               "", "Live animals", "", "", None, None, 5, 7]
+        fields = parse_row(row)
+        self.assertEqual(fields["hs2"], "01")
+        self.assertEqual(fields["hs4"], "0101")
+
+    def test_blank_value_cells_import_as_null_not_zero(self):
+        """A blank cell means no figure was reported, which is not a zero."""
+        row = [2024, "72", "72 - Iron and steel", "", "", "Metals",
+               "", "Base metals", "", "", None, 0, None, None]
+        fields = parse_row(row)
+        self.assertIsNone(fields["italy_to_india_value"])
+        self.assertEqual(fields["india_to_italy_value"], Decimal("0"))
+
+    def test_round_trip_preserves_every_column(self):
+        source = [
+            2024, "01", "01 - Live animals", "0101", "0101 - HORSES",
+            "Agri&Food", "Brochure two", "Live animals; animal products",
+            "Live animals", "Live animals - equines",
+            None, None, 1.93, 0.0029,
+        ]
+        record = parse_row(source)
+        TradeRecord.objects.create(**record)
+        stored = TradeRecord.objects.values(*EXPORT_FIELDS).first()
+
+        exported = build_row(stored)
+        self.assertEqual(exported, source)
+
+    def test_hs2_level_rows_export_values_in_the_hs2_columns(self):
+        """HS2 rows carry K/L and leave M/N blank. HS4 rows do the reverse."""
+        source = [
+            2024, "72", "72 - Iron and steel", "", "", "Metals", "",
+            "Base metals", "Iron and steel", "", 12.5, 8.25, None, None,
+        ]
+        record = parse_row(source)
+        TradeRecord.objects.create(**record)
+        exported = build_row(TradeRecord.objects.values(*EXPORT_FIELDS).first())
+
+        self.assertEqual(exported[10:12], [12.5, 8.25])   # K/L filled
+        self.assertEqual(exported[12:14], [None, None])   # M/N blank
+        self.assertEqual(exported, source)
+
+    def test_rows_without_a_year_are_skipped(self):
+        self.assertIsNone(parse_row([None] * 14))
+        self.assertIsNone(parse_row(["", "01"] + [None] * 12))
+
+    def test_short_rows_are_skipped(self):
+        self.assertIsNone(parse_row([2024, "01", "desc"]))
+
+
+class ExportEndpointTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient()
+        self.user = User.objects.create_user("exporter", password="pw")
+        TradeRecord.objects.create(**parse_row([
+            2024, "01", "01 - Live animals", "", "", "Agri&Food", "",
+            "Live animals; animal products", "Live animals", "",
+            4.5, None, None, None,
+        ]))
+
+    def test_exports_require_authentication(self):
+        for path in ["/api/trade/export/xlsx/", "/api/trade/export/csv/"]:
+            self.assertEqual(self.client.get(path).status_code, 403, path)
+
+    def test_csv_export_uses_the_source_header_row(self):
+        self.client.force_authenticate(self.user)
+        r = self.client.get("/api/trade/export/csv/")
+        self.assertEqual(r.status_code, 200)
+
+        body = r.content.decode("utf-8-sig")
+        header = body.splitlines()[0]
+        self.assertEqual(header.split(","), SOURCE_HEADERS)
+
+    def test_csv_export_writes_blanks_not_zeros(self):
+        self.client.force_authenticate(self.user)
+        body = self.client.get("/api/trade/export/csv/").content.decode("utf-8-sig")
+        cells = body.splitlines()[1].split(",")
+
+        self.assertEqual(cells[10], "4.5")   # Imports from Italy (HS2)
+        self.assertEqual(cells[11], "")      # blank in the source stays blank
+
+    def test_xlsx_export_is_a_workbook_with_the_source_layout(self):
+        self.client.force_authenticate(self.user)
+        r = self.client.get("/api/trade/export/xlsx/")
+        self.assertEqual(r.status_code, 200)
+
+        wb = openpyxl.load_workbook(io.BytesIO(r.content), data_only=True)
+        rows = list(wb.active.iter_rows(values_only=True))
+        self.assertEqual(list(rows[0]), SOURCE_HEADERS)
+        self.assertEqual(rows[1][10], 4.5)
+        self.assertIsNone(rows[1][11])
+
+    def test_export_respects_dashboard_filters(self):
+        TradeRecord.objects.create(**parse_row([
+            2023, "02", "02 - Meat", "", "", "Agri&Food", "", "Meat",
+            "Meat", "", 1.0, 1.0, None, None,
+        ]))
+        self.client.force_authenticate(self.user)
+        body = self.client.get("/api/trade/export/csv/?year=2024").content.decode("utf-8-sig")
+
+        data_rows = [line for line in body.splitlines()[1:] if line.strip()]
+        self.assertEqual(len(data_rows), 1)
+        self.assertTrue(data_rows[0].startswith("2024,"))

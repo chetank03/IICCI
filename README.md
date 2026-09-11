@@ -36,7 +36,7 @@ All trade values on the platform are treated as euro-denominated values and are 
 - KPI cards for bilateral trade and directional trade flows
 - Year-wise trade comparison between Indian imports from Italy and Italian imports from India
 - Sector breakdown and top-product analysis for India-Italy trade
-- Paginated trade table with CSV export for filtered trade records
+- Paginated trade table with Excel and CSV export of filtered trade records, in the source workbook layout
 - Google signup flow with pending approval, admin approval, and rejection states
 - Admin data import panel with:
   - `Add Data` for appending new rows
@@ -75,7 +75,7 @@ The frontend runs at `http://localhost:3000`.
 
 ### Backend
 
-Defined in [backend/.env.example](/Users/chetan/Documents/Playground/IICCI/backend/.env.example).
+Defined in [backend/.env.example](backend/.env.example).
 
 Important values:
 
@@ -90,7 +90,7 @@ Important values:
 
 ### Frontend
 
-Defined in [frontend/.env.example](/Users/chetan/Documents/Playground/IICCI/frontend/.env.example).
+Defined in [frontend/.env.example](frontend/.env.example).
 
 Important values:
 
@@ -126,9 +126,40 @@ Notes:
 - Import completion clears backend dashboard cache
 - The admin UI also clears cached filter options in the browser after import
 
+### Workbook format
+
+The workbook layout is defined once in [backend/core/tradeformat.py](backend/core/tradeformat.py)
+and shared by the importer, the management command, and both exporters, so an
+uploaded file and a downloaded one cannot drift apart.
+
+Two rules the format depends on:
+
+- **A row is either HS2-level or HS4-level.** HS2 rows leave column D blank and
+  carry their values in K/L; HS4 rows carry theirs in M/N. No row uses both pairs.
+  Analytics queries rely on this to avoid double-counting.
+- **A blank value cell is not a zero.** It means no figure was reported and is
+  stored as `NULL`, exported as a blank cell, and shown as `—` in the table.
+  Aggregations skip nulls rather than counting them as zero.
+
+HS codes are stored as zero-padded text. Excel saves chapter `01` as text but
+chapter `10` as a number, so without padding the same code can arrive in two
+forms and split into two separate filter values.
+
+## Data Export
+
+The trade table exports the current filter selection in the same 14-column
+layout the client uploads, so a downloaded file can be edited and re-imported
+with no changes:
+
+- `GET /api/trade/export/xlsx/`
+- `GET /api/trade/export/csv/`
+
+Both require an authenticated session and accept the same query parameters as
+`GET /api/trade/table/`.
+
 ## API Overview
 
-Core API routes are defined in [backend/core/urls.py](/Users/chetan/Documents/Playground/IICCI/backend/core/urls.py).
+Core API routes are defined in [backend/core/urls.py](backend/core/urls.py).
 
 Key endpoints:
 
@@ -139,6 +170,8 @@ Key endpoints:
 - `GET /api/stats/dashboard/`
 - `GET /api/stats/filters/`
 - `GET /api/trade/table/`
+- `GET /api/trade/export/xlsx/`
+- `GET /api/trade/export/csv/`
 - `GET /api/admin/stats/`
 - `POST /api/admin/import-excel/`
 - `POST /api/admin/users/<id>/approve/`
@@ -146,13 +179,13 @@ Key endpoints:
 
 ## Data Model
 
-The main trade data model is [backend/core/models.py](/Users/chetan/Documents/Playground/IICCI/backend/core/models.py).
+The main trade data model is [backend/core/models.py](backend/core/models.py).
 
 Each `TradeRecord` stores:
 
 - Year and optional quarter
 - HS2 / HS4 codes
-- Descriptions and sector metadata
+- Descriptions and sector metadata, including the HS2 sector description
 - Product category and keyword classification
 - India-Italy trade values for:
   - Indian imports from Italy
@@ -178,7 +211,7 @@ npm run build
 
 ## Deployment Notes
 
-- The frontend includes [frontend/railway.json](/Users/chetan/Documents/Playground/IICCI/frontend/railway.json) for a static Railway deployment.
+- The frontend includes [frontend/railway.json](frontend/railway.json) for a static Railway deployment.
 - The backend is set up for production with Gunicorn, WhiteNoise, secure cookies, trusted origins, and PostgreSQL.
 - In production, Django uses `DATABASE_URL` when provided.
 

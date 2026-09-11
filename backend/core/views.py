@@ -1,4 +1,5 @@
 import base64
+import csv
 import hashlib
 import json
 import logging
@@ -16,6 +17,8 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from django.db.models import F, Max, Q, Sum
 from django.db.models.functions import Coalesce
+from django.http import HttpResponse
+from django.utils import timezone
 from django.middleware.csrf import get_token
 from django.views.decorators.csrf import ensure_csrf_cookie
 import firebase_admin
@@ -26,6 +29,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 
 from .models import TradeRecord, UserProfile
+from .tradeformat import EXPORT_FIELDS, SOURCE_HEADERS, build_row, parse_row
 
 logger = logging.getLogger("core")
 
@@ -627,6 +631,81 @@ def admin_stats(request):
     })
 
 
+# ── EXPORT (source workbook layout) ───────────────────────────────────────────
+
+
+# Exports stream the full filtered result set, not a page. Guard against an
+# unfiltered export of an unbounded table.
+MAX_EXPORT_ROWS = 100_000
+
+# 1-based worksheet columns for the two HS code fields (B and D).
+HS2_COLUMN = 2
+HS4_COLUMN = 4
+
+
+def _export_queryset(params):
+    """Filtered records in source order, ready for the row builder."""
+    qs = TradeRecord.objects.all().order_by("year", "hs2", "hs4")
+    qs = _apply_filters(qs, params)
+    return qs.values(*EXPORT_FIELDS)[:MAX_EXPORT_ROWS]
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def export_excel(request):
+    """Download filtered records as .xlsx in the client's own upload layout.
+
+    The output is re-importable through the admin panel with no edits.
+    """
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Sheet1"
+    ws.append(SOURCE_HEADERS)
+
+    for record in _export_queryset(request.query_params):
+        row = build_row(record)
+        ws.append(row)
+        # HS codes are text, so "01" keeps its leading zero. Without an explicit
+        # text format Excel flags them as "number stored as text".
+        for column in (HS2_COLUMN, HS4_COLUMN):
+            ws.cell(row=ws.max_row, column=column).number_format = "@"
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = (
+        f'attachment; filename="{_export_filename("xlsx")}"'
+    )
+    wb.save(response)
+    wb.close()
+    return response
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def export_csv(request):
+    """Download filtered records as CSV in the client's own upload layout."""
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = (
+        f'attachment; filename="{_export_filename("csv")}"'
+    )
+    # Excel needs the BOM to read UTF-8 accents in the descriptions correctly.
+    response.write("\ufeff")
+
+    writer = csv.writer(response)
+    writer.writerow(SOURCE_HEADERS)
+    for record in _export_queryset(request.query_params):
+        writer.writerow(["" if cell is None else cell for cell in build_row(record)])
+    return response
+
+
+def _export_filename(extension):
+    stamp = timezone.now().strftime("%y%m%d")
+    return f"{stamp}_HS Codes_IMPEX_Stats.{extension}"
+
+
 @api_view(["POST"])
 @permission_classes([IsAdminUser])
 def admin_import_excel(request):
@@ -656,47 +735,11 @@ def admin_import_excel(request):
         skipped = 0
 
         for row in ws.iter_rows(min_row=2, values_only=True):
-            if len(row) < 14:
+            fields = parse_row(row)
+            if fields is None:
                 skipped += 1
                 continue
-
-            year = row[0]
-            if not year:
-                skipped += 1
-                continue
-
-            hs2             = str(row[1] or "").strip()
-            hs2_desc        = str(row[2] or "").strip()
-            hs4             = str(row[3] or "").strip() if row[3] else ""
-            hs4_desc        = str(row[4] or "").strip() if row[4] else ""
-            sector          = str(row[5] or "").strip()
-            brochure2       = str(row[6] or "").strip()
-            macrosector     = str(row[7] or "").strip()
-            hs2_sector_desc = str(row[8] or "").strip()
-            keyword         = str(row[9] or "").strip()
-
-            if hs4:
-                italy_val   = row[12] or 0
-                india_val   = row[13] or 0
-                description = hs4_desc or hs2_desc
-            else:
-                italy_val   = row[10] or 0
-                india_val   = row[11] or 0
-                description = hs2_desc or hs2_sector_desc
-
-            records.append(TradeRecord(
-                year=int(year),
-                hs2=hs2,
-                hs4=hs4,
-                description=description,
-                hs2_description=hs2_desc,
-                sector=sector,
-                brochure2=brochure2,
-                macrosector=macrosector,
-                keyword=keyword,
-                italy_to_india_value=Decimal(str(italy_val)),
-                india_to_italy_value=Decimal(str(india_val)),
-            ))
+            records.append(TradeRecord(**fields))
 
         wb.close()
 

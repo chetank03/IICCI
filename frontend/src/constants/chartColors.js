@@ -16,4 +16,10 @@ export const fmtValue = (v) => {
 
 export const fmtTooltip = (v) => `€${toNumber(v).toFixed(2)}M`;
 
-export const fmtTableValue = (v) => `€${toNumber(v).toFixed(2)}M`;
+// A null value means the source workbook left the cell blank: no figure was
+// reported. That is not the same as a reported zero, so it must not render as
+// "€0.00M".
+export const NO_DATA = "\u2014";
+
+export const fmtTableValue = (v) =>
+  v === null || v === undefined || v === "" ? NO_DATA : `€${toNumber(v).toFixed(2)}M`;

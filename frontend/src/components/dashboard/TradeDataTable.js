@@ -1,72 +1,61 @@
-import { fetchTradeTable } from "../../api/stats";
+import { useState } from "react";
+import { downloadExport } from "../../api/stats";
 import { fmtTableValue } from "../../constants/chartColors";
 import { ITALY_TO_INDIA_LABEL, INDIA_TO_ITALY_LABEL } from "../../constants/tradeFlows";
 
+function DownloadIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  );
+}
+
 export default function TradeDataTable({
   rows, total, page, pageSize, loading,
-  filters, onPageChange, onRowClick,
+  filters, onPageChange, onRowClick, onExportError,
 }) {
   const totalPages = Math.ceil(total / pageSize);
 
-  const exportCsv = async () => {
-    const exportPageSize = 100;
-    let currentPage = 1;
-    let items = [];
+  const [exporting, setExporting] = useState("");
 
-    while (true) {
-      const data = await fetchTradeTable(filters, currentPage, exportPageSize);
-      const pageItems = data.items || [];
-      items = items.concat(pageItems);
-      if (pageItems.length < exportPageSize || items.length >= (data.total || 0)) break;
-      currentPage += 1;
+  const runExport = async (format) => {
+    setExporting(format);
+    try {
+      await downloadExport(filters, format);
+    } catch (err) {
+      onExportError?.(err.message || "Export failed.");
+    } finally {
+      setExporting("");
     }
-
-    const header = [
-      "Year",
-      "HS2",
-      "HS4",
-      "Description",
-      "Sector",
-      "Product Category",
-      "Specific Products",
-      `${ITALY_TO_INDIA_LABEL} (M EUR)`,
-      `${INDIA_TO_ITALY_LABEL} (M EUR)`,
-    ];
-    const lines  = [header.join(",")];
-    for (const r of items) {
-      lines.push([
-        r.year,
-        r.hs2,
-        r.hs4 || "",
-        `"${(r.description || "").replace(/"/g, '""')}"`,
-        `"${(r.sector || "").replace(/"/g, '""')}"`,
-        `"${(r.macrosector || "").replace(/"/g, '""')}"`,
-        `"${(r.keyword || "").replace(/"/g, '""')}"`,
-        parseFloat(r.italy_to_india_value).toFixed(2),
-        parseFloat(r.india_to_italy_value).toFixed(2),
-      ].join(","));
-    }
-    const blob = new Blob([lines.join("\n")], { type: "text/csv" });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    a.href     = url;
-    a.download = "iicci_trade_data.csv";
-    a.click();
-    URL.revokeObjectURL(url);
   };
 
   return (
     <div className="data-table-section">
       <div className="data-table-toolbar">
         <span className="data-table-count">{total.toLocaleString()} records</span>
-        <button className="csv-export-btn" onClick={exportCsv}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
-          </svg>
-          Export CSV
-        </button>
+        <div className="export-btn-group">
+          <button
+            className="csv-export-btn"
+            onClick={() => runExport("xlsx")}
+            disabled={!!exporting}
+            title="Download in the same column layout used for uploads"
+          >
+            <DownloadIcon />
+            {exporting === "xlsx" ? "Preparing..." : "Export Excel"}
+          </button>
+          <button
+            className="csv-export-btn"
+            onClick={() => runExport("csv")}
+            disabled={!!exporting}
+            title="Download in the same column layout used for uploads"
+          >
+            <DownloadIcon />
+            {exporting === "csv" ? "Preparing..." : "Export CSV"}
+          </button>
+        </div>
       </div>
 
       {loading && <div className="loading-bar loading-bar--inline" />}
